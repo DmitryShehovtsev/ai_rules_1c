@@ -3819,6 +3819,8 @@ function Place-RootTemplates {
 #   the /litemode command),
 #   CAVEMAN (empty = auto; caveman communication-style auto-activation, toggled
 #   by the /caveman command),
+#   METADATA_PREVIEW (empty = auto; when the wrapper -Preview runs before a
+#   metadata write, toggled by the /previewmode command),
 #   PLATFORM_ARGS / IBCMD_ARGS (empty = no extra platform arguments; passed to
 #   1cv8.exe / ibcmd by the 1c-metadata-manage db-* / epf-* tools),
 #   SUPPORT_GUARD (empty = deny; reaction of the vendor-support guard in the

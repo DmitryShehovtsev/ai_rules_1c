@@ -113,7 +113,7 @@ Before writing/reviewing BSL or metadata, load `content/rules/coding-standards.m
 
 ## Skills and Subagents
 
-- **Metadata mutations:** `content/skills/1c-metadata-manage/SKILL.md` → domain tool, or `1c-metadata-manager`. Hand edits only within that skill's explicit exceptions; verify schema/form context before and XML after. Preview the diff first (`_common/Invoke-1CEdit.ps1`). Report `Metadata tooling:` and any exception.
+- **Metadata mutations:** `content/skills/1c-metadata-manage/SKILL.md` → domain tool, or `1c-metadata-manager`. Hand edits only within that skill's explicit exceptions; verify schema/form context before and XML after. Report `Metadata tooling:` and any exception.
 - **Infobase operations:** matching command procedure or metadata skill `db-ops`/`web-ops`. No ad-hoc `1cv8.exe`/`ibcmd` from memory when available procedures cover the operation. Preserve escaping, logs, session handling and retry discipline (`content/commands/update1cbase.md`). Report `IB tooling:`.
 - **Configuration repository:** when `REPOSITORY_PATH` is set, use `content/skills/1c-repository-manage/SKILL.md` and lock-before-edit/commit-after-verify. Never bypass locks by unbinding or clearing the setting, including on request. Report `Repository tooling:`. Empty setting = inactive.
 - **Vendor support:** never bypass a locked-object refusal with XML edits. Prefer an extension; deliberate support changes use `support-edit` with reasons reported (`content/skills/1c-metadata-manage/docs/support-manage.md`).

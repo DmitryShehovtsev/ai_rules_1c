@@ -4,10 +4,11 @@ This document describes the installation, update and migration mechanics of the 
 
 ## Installation channels
 
-`1c-rules` ships with two equivalent channels. They produce the **same** on-disk layout and the **same** `.ai-rules.json` manifest:
+`1c-rules` ships with three equivalent channels. They produce the **same** on-disk layout and the **same** `.ai-rules.json` manifest:
 
 1. **Agent-driven channel (default).** The AI agent reads this document and `adapters/*.yaml`, then places files into the project. No external CLI required. This is the default when the user asks the agent to install rules.
 2. **PowerShell channel (fallback).** `install.ps1` implements the same protocol deterministically through a CLI. Use it when the agent is unavailable, the environment is restricted, or you want a reproducible CI/CD-friendly run.
+3. **Git marketplace wrapper.** Hosts that can add a git catalog (Cursor team marketplace, Claude Code, Codex, OpenCode / Kilo CLI) install the thin plugin in `plugins/1c-rules/`. That plugin **must call** `install.ps1` (`plugins/1c-rules/scripts/invoke-install.ps1`). It must not copy `content/` into the host plugin cache or dump on-demand rules into `.claude/rules/` / `.kilo/rules/`. `ensure` may `init` or `add` on a 1C project; it never auto-updates.
 
 A project installed by one channel can later be updated by the other.
 

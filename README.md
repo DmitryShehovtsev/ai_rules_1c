@@ -2,6 +2,41 @@
 
 > **Если ты ИИ-агент** и тебе нужно установить или обновить правила в проекте, перейди к [`AGENT-INSTALL.md`](AGENT-INSTALL.md) и следуй инструкциям оттуда. Текущий файл — обзор для разработчика.
 
+## Подключить marketplace
+
+Каталог — этот репозиторий. Плагин вызывает `install.ps1` и не копирует `content/rules` в always-on правила хоста.
+
+**Cursor** — Dashboard → Plugins → import `https://github.com/comol/ai_rules_1c`, затем плагин `1c-rules`.
+
+**Claude Code**
+
+```sh
+claude plugin marketplace add comol/ai_rules_1c
+claude plugin install 1c-rules@1c-rules
+```
+
+**Codex**
+
+```sh
+codex plugin marketplace add comol/ai_rules_1c --ref main
+codex plugin add 1c-rules@1c-rules
+```
+
+В приложении Codex: Plugins → Add More → `https://github.com/comol/ai_rules_1c.git`.
+
+**OpenCode**
+
+```sh
+opencode plugin marketplace add comol/ai_rules_1c
+opencode plugin marketplace install 1c-rules
+```
+
+Если команды `plugin marketplace` нет, в `opencode.json`: `{ "plugin": ["<clone>/plugins/1c-rules"] }`.
+
+**Kilo CLI** — тот же каталог, что у Claude Code / OpenCode. В **Kilo Code (VS Code)** своего `marketplace add` нет: Kilo CLI или `install.ps1 init -Tools kilocode` из корня проекта.
+
+После подключения на 1С-проекте плагин сам ставит правила под хост (`ensure`). Обновление — `/1c-rules:update` или `install.ps1 update`.
+
 `1c-rules` — это переносимый набор правил, ролей субагентов, on-demand инструкций и интеграций для разработки в `1С:Предприятие 8` (BSL) с помощью ИИ-агентов. Содержимое раскладывается в проект единым установщиком и адаптируется под формат каждого инструмента.
 
 ## Под какие ИИ-агенты адаптированы правила
@@ -29,6 +64,8 @@
 > Установи правила из `https://github.com/comol/ai_rules_1c` по `AGENT-INSTALL.md`.
 
 Всё. Остальное — клонирование репозитория, определение активных инструментов, миграция существующих `AGENTS.md` / `CLAUDE.md`, запросы перед разрушительными действиями — описано в [`AGENT-INSTALL.md`](AGENT-INSTALL.md), который агент прочитает сам.
+
+Через marketplace — команды в начале файла, раздел *Подключить marketplace*.
 
 ### Fallback: PowerShell-установщик
 
@@ -60,7 +97,7 @@ git clone https://github.com/comol/ai_rules_1c.git $env:TEMP\1c-rules
 - **Память проекта** — `memory.md`: строгий долговременный слой для глобальных критичных правил проекта. Для остальных заметок запись идёт в подключённый Cognee, при его отсутствии — в OpenViking, затем в память templates MCP. Поиск охватывает все подключённые инструменты памяти, включая templates MCP. Маршрутизация и обработка сбоев описаны в `content/rules/project-memory.md`; `memory.md` — не общий блокнот.
 - **Самоулучшаемые правила** — `LLM-RULES.md`: слой правил поведения агента, накопленных из наблюдаемого «трения» (корректировки пользователя, избыточные шаги, конфликтующие правила). Пишется **только** командой `/evolve` с поштучным одобрением пользователя; агент в обычных задачах лишь фиксирует сигналы (`remember` с префиксом `rule-friction:`) и рекомендует запустить `/evolve`. Приоритет при конфликте: выше `AGENTS.md` и on-demand правил, ниже `USER-RULES.md` и `memory.md`. Установщик не перезаписывает.
 - **Адаптация под модель** — `AGENT_MODEL` в `.dev.env` + профили `content/rules/model-opus5.md` / `model-sonnet5.md` / `model-fable5.md` / `model-gpt56.md` / `model-gpt6.md` (роутер — `model-adaptation.md`). Базовый свод модель-нейтрален; профиль — тонкая надстройка под задокументированное поведение конкретной модели (Claude Opus 5 / Sonnet 5 / Fable 5 / GPT-5.6 / GPT-6 Astra): длина ответов и отчётов, объём нарратива, глубина планирования, охота к делегированию, лишние самопроверки, рекомендации по effort / verbosity, форма контекста, который агент пишет для других (брифы субагентам, заметки памяти, handoff: описанный интерфейс вместо примеров, ссылки на код вместо пересказа). Общие принципы промптинга, справедливые для всех моделей, живут в базовых правилах и профилем не переопределяются; хард-гейты (метаданные через `1c-metadata-manage`, операции с ИБ, MCP-first, цепочка валидаторов и её бюджет, `templatesearch` / `recall`, `CONFUSION`, обязательный отчёт) профиль ослабить не может. Включается командой `/rulesmodel <модель>` (название — в любом написании, нормализует сама; `auto` — определить текущую модель, `off` — выключить); при первой установке модель предлагается выбрать. Источники специфики: гайды Anthropic (промптинг конкретных моделей, контекст-инжиниринг для поколения Claude 5) и OpenAI по промптингу конкретных моделей.
-- **Параметры проекта** — `.dev.env`: единый источник правды для всех правил, on-demand-инструкций, слэш-команд и субагентов. Содержит параметры генерации кода (`PREFIX`, `COMPANY`, `DEVELOPER`, `PLATFORM_VERSION`, шаблоны комментариев, `NEW_OBJECTS_IN`), постоянный признак использования EDT (`USE_EDT=true|false` — спрашивается один раз, только при **создании** `.dev.env`; в уже существующий файл дописывается `false` без вопросов; `true` включает EDT-ветку правил `edt-workflow.md` и рекомендацию EDT-MCP), параметры подключения к ИБ для команд и тестов (`PLATFORM_PATH`, `INFOBASE_KIND`/`INFOBASE_PATH`, `IB_USER`/`IB_PASSWORD`, `EXTENSION_NAME`, `EXTENSION_NAMES` — список расширений «полного снимка» cf + cfe для команд полного цикла (`/initproject`, `/restore-testbase`, `/build-release`, режим `all` у `/loadfrom1cbase`/`/update1cbase`/`/deploy-and-test`), `EXPORT_PATH`, `EXTENSIONS_PATH` — корень исходников расширений (пусто = `cfe/` в корне), `DT_SNAPSHOT_PATH` — .dt-снимок данных для `/restore-testbase`, `RELEASE_PATH` — каталог артефактов `/build-release`, `LOG_PATH`, `INFOBASE_PUBLISH_URL` для веб-тестов, `UI_TESTING` — режим веб-тестирования UI: `manual` (по умолчанию — только по явному запросу) / `auto` / `off`; `PLATFORM_ARGS` / `IBCMD_ARGS` — дополнительные аргументы запуска платформы для инструментов скилла `1c-metadata-manage`; `SUPPORT_GUARD` — реакция гейта поддержки на правку объекта типовой «на замке»: `deny` (по умолчанию) / `warn` / `off`) и модели субагентов по ярусам (`SUBAGENT_MODEL_CODING` — код/метаданные/архитектура, `SUBAGENT_MODEL_ANALYSIS` — план/аналитика/ревью/тест/доки, `SUBAGENT_MODEL_LIGHT` — исследование/поиск/быстрые фиксы; пусто — модель AI-клиента по умолчанию; при первой установке предлагается профиль по бенчу onec-llm-bench.lovable.app; сами файлы субагентов имён моделей не содержат), а также режим оркестрации (`ORCHESTRATION` — `standard` (по умолчанию) / `economy`; переключается командой `/economymode`) и параметры процесса разработки (`QUICKFIX_MAX_LINES` — лимит строк пути quick-fix, пусто = 40; `DEBUG_FAST_PATH` — режим быстрого пути отладки: `standard` (по умолчанию) / `extended` / `off`; `VERIFICATION_DEPTH` — глубина статических проверок кода: `standard` (по умолчанию) / `full` / `lite`, переключается командой `/litemode`, которая при уровне `lite` также ставит `UI_TESTING=off`; `CAVEMAN` — автоактивация краткого стиля общения caveman: `on` (по умолчанию, на всех задачах) / `auto` (только на разработке) / `off`, переключается командой `/caveman`; `AGENT_MODEL` — модель **головного** агента для адаптации правил под её поведение: `opus5` / `sonnet5` / `fable5` / `gpt56` / `gpt6`, пусто = профиль не применяется, переключается командой `/rulesmodel`, которая принимает название модели в любом написании). Отдельный блок — канал поддержки (`SUPPORT_KEY` и `SUPPORT_EMAIL` — оба обязательны для отправки обращения командой `/support`; `SUPPORT_API_URL` — адрес сервиса, пусто = адрес по умолчанию). Установщик дописывает эти ключи пустыми в уже существующий `.dev.env` и ничего про них не спрашивает: ключ приходит с дистрибутивом MCP, e-mail указывает сам пользователь. Установщик создаёт `.dev.env` автоматически на `init`, заполняет автодетектом `PLATFORM_VERSION` (из `Configuration.xml`), `PLATFORM_PATH` (поиск в `C:\Program Files\1cv8\`) и `PREFIX` (из `NamePrefix` расширения), спрашивает `USE_EDT` (только когда создаёт файл), затем предлагает остальные параметры в интерактивном режиме. В `-NonInteractive` пишет `USE_EDT=false`, оставляет остальные допустимые пустые поля с явным WARNING. Шаблон — `.dev.env.example`.
+- **Параметры проекта** — `.dev.env`: единый источник правды для всех правил, on-demand-инструкций, слэш-команд и субагентов. Содержит параметры генерации кода (`PREFIX`, `COMPANY`, `DEVELOPER`, `PLATFORM_VERSION`, шаблоны комментариев, `NEW_OBJECTS_IN`), постоянный признак использования EDT (`USE_EDT=true|false` — спрашивается один раз, только при **создании** `.dev.env`; в уже существующий файл дописывается `false` без вопросов; `true` включает EDT-ветку правил `edt-workflow.md` и рекомендацию EDT-MCP), параметры подключения к ИБ для команд и тестов (`PLATFORM_PATH`, `INFOBASE_KIND`/`INFOBASE_PATH`, `IB_USER`/`IB_PASSWORD`, `EXTENSION_NAME`, `EXTENSION_NAMES` — список расширений «полного снимка» cf + cfe для команд полного цикла (`/initproject`, `/restore-testbase`, `/build-release`, режим `all` у `/loadfrom1cbase`/`/update1cbase`/`/deploy-and-test`), `EXPORT_PATH`, `EXTENSIONS_PATH` — корень исходников расширений (пусто = `cfe/` в корне), `DT_SNAPSHOT_PATH` — .dt-снимок данных для `/restore-testbase`, `RELEASE_PATH` — каталог артефактов `/build-release`, `LOG_PATH`, `INFOBASE_PUBLISH_URL` для веб-тестов, `UI_TESTING` — режим веб-тестирования UI: `manual` (по умолчанию — только по явному запросу) / `auto` / `off`; `PLATFORM_ARGS` / `IBCMD_ARGS` — дополнительные аргументы запуска платформы для инструментов скилла `1c-metadata-manage`; `SUPPORT_GUARD` — реакция гейта поддержки на правку объекта типовой «на замке»: `deny` (по умолчанию) / `warn` / `off`) и модели субагентов по ярусам (`SUBAGENT_MODEL_CODING` — код/метаданные/архитектура, `SUBAGENT_MODEL_ANALYSIS` — план/аналитика/ревью/тест/доки, `SUBAGENT_MODEL_LIGHT` — исследование/поиск/быстрые фиксы; пусто — модель AI-клиента по умолчанию; при первой установке предлагается профиль по бенчу onec-llm-bench.lovable.app; сами файлы субагентов имён моделей не содержат), а также режим оркестрации (`ORCHESTRATION` — `standard` (по умолчанию) / `economy`; переключается командой `/economymode`) и параметры процесса разработки (`QUICKFIX_MAX_LINES` — лимит строк пути quick-fix, пусто = 40; `DEBUG_FAST_PATH` — режим быстрого пути отладки: `standard` (по умолчанию) / `extended` / `off`; `VERIFICATION_DEPTH` — глубина статических проверок кода: `standard` (по умолчанию) / `full` / `lite`, переключается командой `/litemode`, которая при уровне `lite` также ставит `UI_TESTING=off`; `CAVEMAN` — автоактивация краткого стиля общения caveman: `on` (по умолчанию, на всех задачах) / `auto` (только на разработке) / `off`, переключается командой `/caveman`; `METADATA_PREVIEW` — когда показывать preview метаданных через `Invoke-1CEdit -Preview`: `auto` (по умолчанию — только генерация из DSL, объект на поддержке при `SUPPORT_GUARD=warn/off`, список захвата до `lock`, незнакомая операция) / `on` (перед каждой записью через обёртку) / `off` (только по явному запросу), переключается командой `/previewmode`; `AGENT_MODEL` — модель **головного** агента для адаптации правил под её поведение: `opus5` / `sonnet5` / `fable5` / `gpt56` / `gpt6`, пусто = профиль не применяется, переключается командой `/rulesmodel`, которая принимает название модели в любом написании). Отдельный блок — канал поддержки (`SUPPORT_KEY` и `SUPPORT_EMAIL` — оба обязательны для отправки обращения командой `/support`; `SUPPORT_API_URL` — адрес сервиса, пусто = адрес по умолчанию). Установщик дописывает эти ключи пустыми в уже существующий `.dev.env` и ничего про них не спрашивает: ключ приходит с дистрибутивом MCP, e-mail указывает сам пользователь. Установщик создаёт `.dev.env` автоматически на `init`, заполняет автодетектом `PLATFORM_VERSION` (из `Configuration.xml`), `PLATFORM_PATH` (поиск в `C:\Program Files\1cv8\`) и `PREFIX` (из `NamePrefix` расширения), спрашивает `USE_EDT` (только когда создаёт файл), затем предлагает остальные параметры в интерактивном режиме. В `-NonInteractive` пишет `USE_EDT=false`, оставляет остальные допустимые пустые поля с явным WARNING. Шаблон — `.dev.env.example`.
 - **Установщик** — `install.ps1`: PowerShell-инсталлятор (команды `init` / `update` / `add` / `remove` / `doctor` / `eject`).
 - **Спецификация установщика** — `AGENT-INSTALL.md`: что пишется/обновляется на диске, как происходит миграция и что принадлежит установщику.
 
@@ -74,12 +111,16 @@ git clone https://github.com/comol/ai_rules_1c.git $env:TEMP\1c-rules
 ├── memory.md                # память проекта
 ├── LLM-RULES.md             # самоулучшаемые правила агента (пишет только /evolve, с одобрения пользователя)
 ├── install.ps1              # PowerShell-установщик
+├── .cursor-plugin/          # git-каталог Cursor (marketplace.json)
+├── .claude-plugin/          # git-каталог Claude Code / OpenCode / Kilo CLI
+├── .agents/plugins/         # git-каталог Codex (читает и OpenCode)
+├── plugins/1c-rules/        # тонкий marketplace-плагин: skills/hooks + вызов install.ps1
 ├── .dev.env.example         # шаблон параметров проекта
 ├── adapters/                # адаптеры под инструменты (cursor, claude-code, codex, opencode, kilocode, kimi, qwen, command-code, cline, pi, other)
 ├── content/
 │   ├── rules/               # on-demand правила, подключаемые по задаче
 │   ├── agents/              # описания 13 специализированных субагентов
-│   ├── commands/            # слэш-команды (doctor, deploy-and-test, initproject, restore-testbase, test-fix-loop, build-release, economymode, litemode, caveman, rulesmodel, evolve, getconfigfiles, loadfrom1cbase, update1cbase, checkmcp, installtools, installmcp, install-cognee, install-openviking, install-edt-mcp, updatemcp, updaterules, checkupdates, support, supportstatus, check-uuid, install-agent-browser, install-windows-mcp, install-rtk)
+│   ├── commands/            # слэш-команды (doctor, deploy-and-test, initproject, restore-testbase, test-fix-loop, build-release, economymode, litemode, previewmode, caveman, rulesmodel, evolve, getconfigfiles, loadfrom1cbase, update1cbase, checkmcp, installtools, installmcp, install-cognee, install-openviking, install-edt-mcp, updatemcp, updaterules, checkupdates, support, supportstatus, check-uuid, install-agent-browser, install-windows-mcp, install-rtk)
 │   ├── skills/              # SKILL-пакеты (1c-metadata-manage, mermaid-diagrams и др.)
 │   ├── openspec-bundle/     # снапшот вывода `openspec init` для каждого инструмента
 │   └── mcp-servers.json     # каталог MCP-серверов экосистемы 1С
@@ -191,7 +232,7 @@ git clone https://github.com/comol/ai_rules_1c.git $env:TEMP\1c-rules
 
 Распределение типизированных операций по инструментам: `meta-edit` — 47 (реквизиты, табличные части, измерения, ресурсы, значения перечислений, формы, макеты, команды, владельцы, движения, предопределённые элементы), `skd-edit` — 34 (наборы данных, поля, параметры, настройки, варианты), `xdto-edit` — 11, `cf-edit` — 8, `interface-edit` — 6, `subsystem-edit` — 5.
 
-Каждая операция валидируется до записи, а после записи `meta-edit` сам запускает `meta-validate` — отключить это можно только явным `-NoValidate`. Мутирующие инструменты отказываются править объект типовой конфигурации «на замке» и ведут в расширение (`support-manage.md`). Показать изменение до применения — `_common/Invoke-1CEdit.ps1 -Preview` (unified diff и откат, [`docs/edit-preview.md`](content/skills/1c-metadata-manage/docs/edit-preview.md)).
+Каждая операция валидируется до записи, а после записи `meta-edit` сам запускает `meta-validate` — отключить это можно только явным `-NoValidate`. Мутирующие инструменты отказываются править объект типовой конфигурации «на замке» и ведут в расширение (`support-manage.md`). По умолчанию инструменты пишут сразу, а `_common/Invoke-1CEdit.ps1 -Preview` (unified diff и откат) включается только в рискованных кейсах — режим `METADATA_PREVIEW=auto`, команда `/previewmode`, разовый показ `/previewmode once` ([`docs/edit-preview.md`](content/skills/1c-metadata-manage/docs/edit-preview.md)).
 
 ### Сопутствующие скиллы
 
