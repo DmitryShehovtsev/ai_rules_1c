@@ -129,7 +129,7 @@ Skills live at `content/skills/<name>/SKILL.md`; availability means exposed in t
 
 ## Project memory
 
-Load `content/rules/project-memory.md` on non-trivial 1C tasks and user corrections. **Recall-first:** task notes before design, plus standing conditions on the first task. **Correction-capture:** save relevant corrections in the same turn. `memory.md` is the strict long-term store; exposed `remember`/`recall` hold scoped notes. Unavailable/unauthorized server → documented dated-entry fallback. No secrets/PII. Report the applicable `Memory:` line.
+Load `content/rules/project-memory.md` on non-trivial 1C tasks and user corrections. **Recall-first:** search all connected memory providers before design; standing conditions on the first task. **Correction-capture:** save corrections in the same turn. Write priority: Cognee → OpenViking → templates MCP. `memory.md` is the strict long-term store and dated fallback when no provider can save. No secrets/PII. Report the `Memory:` line.
 
 ## Rules self-improvement (`/evolve` + `LLM-RULES.md`)
 
