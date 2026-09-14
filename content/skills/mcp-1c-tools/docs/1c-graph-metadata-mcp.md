@@ -136,6 +136,10 @@ In graph-only mode, structural graph/template/fulltext functions continue while 
 
 Lifecycle tools own independent base-project sources. They do not turn separately registered projects into extension layers. If the deployment uses an extension catalog, ingest the catalog through the server deployment and query every layer under the returned base `project_id`.
 
+For the beta manager-call fix with CALLS relation version 3 (14 September 2026), an ordinary restart over the existing data and export rebuilds the outdated CALLS lane once. With BSL loading enabled, unchanged modules, their embeddings and completed register-access relations are preserved. Do not request full refresh, delete the graph or enable source-unit manifests merely to apply this fix. `refresh_capability_unavailable` is a protection against losing derived data; do not bypass it.
+
+For a legacy extension whose base is missing from `list_graph_projects`, check both instances' Neo4j connection, `MCP_NAMESPACE` and exact base project ID before concluding that the graph is empty. The fixed beta can discover existing scoped data for the base explicitly named by `EXTENSION_BASE_PROJECT_ID` (or `EXTENSION_BASE_PROJECT`) even without an old ingestion checkpoint. This does not grant access to another namespace, staging data or a corrupt checkpoint; a missing base is not a reason to re-embed the whole configuration.
+
 ## Source preparation
 
 - A Designer XML export in `CODE_EXPORT_PATH` is sufficient: with `METADATA_SOURCE=auto`, the server prefers a supplied text report and otherwise synthesizes/caches one from XML in the background. `METADATA_SOURCE=xml` deliberately ignores a stale report; `report` requires one.
