@@ -30,6 +30,8 @@ The same convention applies to `docs/*.md` references like `skills/1c-metadata-m
 
 ## Runtime selection — Windows / Linux / macOS
 
+XML saving in `form-edit`, `form-add`, `remove-form`, `form-compile` registration, `meta-edit`, `cf-edit`, `cfe-borrow` registration/merge, `skd-edit`, `subsystem-edit`, `subsystem-compile` registration, `interface-edit`, `add-template` and `add-help` retains the input CRLF/LF style and uses Configurator's compact empty tags (`<Tag/>`). Formatting-only changes should not be repaired by a global replacement that can alter literal XML in comments or CDATA.
+
 Each tool of this skill ships as a PowerShell script (`*.ps1`). Some tools additionally ship a **Python entry point** (`*.py`) next to it, with the same parameter names and the same contract:
 
 **Exactly five commands have a Python entry point today.** They are listed here by file name; these are the only shipped Python command entry points (`tools/_common/dev_env.py` is a shared helper, not an additional command), and no tool outside this table may be assumed to work on Linux.

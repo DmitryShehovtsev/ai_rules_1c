@@ -202,6 +202,8 @@ Only when `form-compile` reports an unknown key or rejects a construct — open 
 
 Adds elements, attributes, and/or commands to an existing Form.xml. Automatically allocates IDs from the correct pool, generates companion elements (ContextMenu, ExtendedTooltip, etc.) and event handlers.
 
+Saving uses Configurator-style compact empty tags (`<Tag/>`) and retains the existing CRLF or LF line endings. Literal text in CDATA, comments and processing instructions is excluded from empty-tag normalization.
+
 ### Usage
 
 ```
