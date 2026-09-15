@@ -29,12 +29,18 @@ Discovery/health/contract tools (`get_metadata_prompt`, `get_indexing_status`, `
 
 ## Recommended workflow
 
+These are conditional steps, not a mandatory preamble for every lookup. Reuse the selected project, resolved identity and known tool schema within the session; discover only the missing contract information. Check schemas again after a contract change or validation error.
+
 1. `health_graph(project_id=...)` when availability is uncertain; it separates process liveness, Neo4j, providers and exact/fulltext/vector/hybrid/traversal lanes.
 2. `list_graph_projects` → choose `project_id`; `get_graph_project_status` if ingestion/generation readiness matters.
 3. `resolve_graph_entity(reference=...)` for a named/path/code reference.
 4. Use the narrow typed tool (`get_object_dossier`, domain relation, path, impact, comparison) rather than broad search.
 5. Use `explain_graph_evidence` / `explain_path` when a decision depends on provenance. A structural answer without evidence is not automatically a release proof.
 6. Page until complete when the answer claims exhaustiveness. `truncated`, `exhaustive=false`, `degraded=true`, or unknown readiness forbids a “nothing else exists” conclusion.
+
+### Tabular-part attributes
+
+Graph supports `MetadataObject → HAS_TABULAR_PART → TabularPart → HAS_ATTRIBUTE → Attribute`; tabular-part columns are part of its metadata model. A response listing tabular parts with empty `attributes` does not establish a general Graph limitation or prove that the source has no columns. Check completeness/readiness and, if needed, one focused relation/evidence query. When the current graph cannot supply the requested columns, state that gap and use Code metadata details under the bounded fallback rule; do not cycle through every Graph search tool.
 
 ## Search and object navigation
 
@@ -120,6 +126,8 @@ An ordinary `Form.bin` is a binary container, not XML. Do not edit it directly. 
 | `metadata_report` | Tombstone explaining replacements for the removed monolithic report |
 
 In graph-only mode, structural graph/template/fulltext functions continue while LLM/vector-dependent lanes report explicit degradation. Do not call missing providers a total outage; inspect `health_graph` and capabilities.
+
+An explicit “business search is disabled” response closes that lane for the current configuration even if the client marks the call completed. Change lanes instead of rephrasing the same request. Tool names and template IDs are separate: select `template_id` from the exposed template catalogue; `list_attributes_with_type` is a tool name, not an interchangeable template ID. `compact_metadata` belongs to the Code server.
 
 ## Project lifecycle and profiles
 
