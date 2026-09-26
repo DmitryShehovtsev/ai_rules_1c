@@ -234,7 +234,7 @@ Select the SDLC QA profile via `/sdlc lite|standard|full` (`/litemode` remains c
 | `standard` (default / empty) | Full-cycle: all three validators. Quick-fix-eligible edit: `syntaxcheck` + `check_1c_code`; `review_1c_code` on a promotion trigger or explicit request. One mandatory confirmation after a blocking fix (2 calls total). |
 | `lite` | Full-cycle: `syntaxcheck` + `check_1c_code`. Quick-fix-eligible edit: `syntaxcheck` only. `review_1c_code` on a promotion trigger or explicit request. |
 
-**Safety floor:** `syntaxcheck` is always run at every level, and any change on a promotion-trigger path (transactions, public `Экспорт` contracts, wired metadata, RLS, subscriptions / scheduled jobs — `verification-policy.md → Triage details`) always runs the full chain regardless of the level. `lite` / `standard` lighten only the checks already applied to low-risk edits; they do not weaken the control of dangerous paths. Gates 4 (impact) / 5 (XML) are unaffected.
+**Safety floor:** `syntaxcheck` is always run at every level, and any change on a promotion-trigger path (transactions, public `Экспорт` contracts, wired metadata, RLS, subscriptions / scheduled jobs — `verification-policy.md → Triage details`) is full-cycle at every level: it runs the full-cycle gates of that level with the `full` retry budget and never drops to the quick-fix set. Gates 4 (impact) / 5 (XML) are unaffected.
 
 #### `CAVEMAN` — caveman auto-activation
 

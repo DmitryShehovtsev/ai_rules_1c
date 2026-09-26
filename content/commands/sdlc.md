@@ -39,4 +39,4 @@ Report the effective profile using its name and slug, its source (project settin
 
 ## Mandatory floor
 
-Every profile preserves the safety floor in `verification-policy.md`: syntax validation on every touched BSL module, the full validator chain and full budget for promotion-trigger paths, and Gates 4 / 5 on their own triggers. Docs-fix remains structural verification only. `UI_TESTING=off` has the same meaning as a manually configured value; the profile does not change the UI-testing policy itself.
+Every profile preserves the safety floor in `verification-policy.md`: syntax validation on every touched BSL module, full-cycle treatment with the full retry budget for promotion-trigger paths, and Gates 4 / 5 on their own triggers. Docs-fix remains structural verification only. `UI_TESTING=off` has the same meaning as a manually configured value; the profile does not change the UI-testing policy itself.

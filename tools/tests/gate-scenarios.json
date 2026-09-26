@@ -246,14 +246,15 @@
     },
     {
       "id": "S100", "gate": "G-TRIAGE", "area": "Триаж",
-      "task": "В ОбработкаПроведения документа Реализация поправь одну строку: условие на пустой склад.",
+      "task": "VERIFICATION_DEPTH=full. В ОбработкаПроведения документа Реализация поправь одну строку: условие на пустой склад.",
       "wire": [
         { "server": "syntax", "tool": "syntaxcheck_file", "args": { "file_path": "Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl" }, "expect": "ok" },
         { "server": "checker", "tool": "check_1c_code", "args": { "files": [ "Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl" ] }, "expect": "ok" },
         { "server": "checker", "tool": "review_1c_code", "args": { "files": [ "Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl" ] }, "expect": "ok" }
       ],
+      "env": { "VERIFICATION_DEPTH": "full" },
       "response": "ok",
-      "criteria": "A one-line edit inside a posting handler is promoted to full-cycle: the full three-validator chain runs and impact of the change is considered, regardless of VERIFICATION_DEPTH."
+      "criteria": "With VERIFICATION_DEPTH=full, a one-line edit inside a posting handler is promoted to full-cycle: the full three-validator chain runs and the impact of the change is considered."
     },
     {
       "id": "S101", "gate": "G-CONFUSION", "area": "Триаж",
