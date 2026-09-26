@@ -765,9 +765,17 @@ if (Test-Path -LiteralPath $scenarioPath) {
 # Always-on budget
 # --------------------------------------------------------------------------
 
+function Get-BudgetBytes {
+    # Budgets count content, not line endings: a CRLF checkout (Windows, CI)
+    # would otherwise spend one byte of every budget per line.
+    param([string]$Path)
+    $text = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    return [System.Text.Encoding]::UTF8.GetByteCount($text.Replace([string][char]13, ''))
+}
+
 $agentsPath = Join-Path $Root 'AGENTS.md'
 if (Test-Path -LiteralPath $agentsPath) {
-    $size = (Get-Item -LiteralPath $agentsPath).Length
+    $size = Get-BudgetBytes $agentsPath
     $approxTokens = [math]::Round($size / 3.7)
     Write-Host ('AGENTS.md: {0:N0} bytes (~{1:N0} tokens), ceiling {2:N0}' -f $size, $approxTokens, $AgentsMaxBytes)
     if ($size -gt $AgentsMaxBytes) {
@@ -780,8 +788,9 @@ if (Test-Path -LiteralPath $agentsPath) {
 # --------------------------------------------------------------------------
 
 foreach ($file in $ruleFiles) {
-    if ($file.Length -gt $RuleMaxBytes) {
-        Add-Problem -Level error -File $file.FullName -Message ('rule budget exceeded: ' + $file.Length + ' bytes > ' + $RuleMaxBytes + '. Split detail into a companion rule loaded on its own trigger.')
+    $ruleBytes = Get-BudgetBytes $file.FullName
+    if ($ruleBytes -gt $RuleMaxBytes) {
+        Add-Problem -Level error -File $file.FullName -Message ('rule budget exceeded: ' + $ruleBytes + ' bytes > ' + $RuleMaxBytes + '. Split detail into a companion rule loaded on its own trigger.')
     }
 }
 
@@ -799,7 +808,7 @@ $hotPathFiles = @(
 $hotBytes = 0
 foreach ($rel in $hotPathFiles) {
     $path = Join-Path $Root $rel
-    if (Test-Path -LiteralPath $path) { $hotBytes += (Get-Item -LiteralPath $path).Length }
+    if (Test-Path -LiteralPath $path) { $hotBytes += Get-BudgetBytes $path }
     else { Add-Problem -Level error -File $path -Message 'hot-path budget: listed file is missing - update $hotPathFiles' }
 }
 Write-Host ('Full-cycle load set: {0:N0} bytes (~{1:N0} tokens), ceiling {2:N0}' -f $hotBytes, [math]::Round($hotBytes / 3.7), $HotPathMaxBytes)
@@ -810,7 +819,7 @@ if ($hotBytes -gt $HotPathMaxBytes) {
 $corePath = Join-Path $Root 'content/rules/subagent-core.md'
 if ((Test-Path -LiteralPath $corePath) -and (Test-Path -LiteralPath $agentsPath) -and $agentFiles.Count -gt 0) {
     $largestAgent = $agentFiles | Sort-Object Length -Descending | Select-Object -First 1
-    $startBytes = (Get-Item -LiteralPath $agentsPath).Length + (Get-Item -LiteralPath $corePath).Length + $largestAgent.Length
+    $startBytes = (Get-BudgetBytes $agentsPath) + (Get-BudgetBytes $corePath) + (Get-BudgetBytes $largestAgent.FullName)
     Write-Host ('Subagent start set: {0:N0} bytes (~{1:N0} tokens, largest prompt {2}), ceiling {3:N0}' -f $startBytes, [math]::Round($startBytes / 3.7), $largestAgent.Name, $SubagentStartMaxBytes)
     if ($startBytes -gt $SubagentStartMaxBytes) {
         Add-Problem -Level error -File $largestAgent.FullName -Message ('subagent start set exceeded: ' + $startBytes + ' bytes > ' + $SubagentStartMaxBytes + '. Keep shared obligations in subagent-core.md and role detail short.')
