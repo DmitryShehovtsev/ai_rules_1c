@@ -72,7 +72,7 @@ Report changes, every modified file, checks and real limitations; for non-trivia
 
 ## MCP Tool Calling
 
-**Hard gate:** before the first 1C MCP call (per session; per run for a subagent) and before writing (in files or the reply), editing or reviewing BSL/metadata, a 1C spec or a memory operation — even with no server exposed — read `content/rules/mcp-policy.md` in full, then `content/skills/mcp-1c-tools/SKILL.md` and the operation skill it names. The policy owns tool policy, availability, fallbacks and server answers; the index below uses its numbers and never replaces it. Acting without it is a defect.
+**Hard gate:** before the first 1C MCP call (per session; per run for a subagent) and before writing or reviewing BSL/metadata, 1C spec or memory operation — even with no server exposed — read `content/rules/mcp-policy.md` in full, then `content/skills/mcp-1c-tools/SKILL.md` and the operation skill it names. The policy owns tool policy, availability, fallbacks and server answers; the index below uses its numbers and never replaces it. Acting without it is a defect.
 
 ### A. Priority and obligation
 
@@ -80,11 +80,11 @@ Report changes, every modified file, checks and real limitations; for non-trivia
 2. **External knowledge:** platform/БСП/ITS only when their facts matter.
 3. **Evidence:** minimum set per `content/rules/tooling-playbooks.md`; confirm 1C facts before writing; disclose gaps.
 4. **Search:** `content/rules/mcp-first-search.md` before searching 1C sources; extensions / multi-project — verified `project_id` and layer (`content/rules/extension-workspace.md`).
-5. **Validation:** saved BSL → `syntaxcheck_file` → `check_1c_code` → `review_1c_code`; only a trigger-free quick-fix stops earlier, per `VERIFICATION_DEPTH`; XML → `verify_xml`.
+5. **Validation:** saved BSL → `syntaxcheck_file` → `check_1c_code` → `review_1c_code` at the active depth; XML → `verify_xml`.
 6. **ITS:** `its_help` → `fetch_its` for every document relied on.
-7. **Platform first:** a task needing a specialized capability is checked before any design, option or question — `docsearch` → `docinfo` (+ `ssl_search`); build on a find; partial fit → `CONFUSION`; reject only for documented incompatibility, stated.
+7. **Platform first:** before a custom specialized mechanism — `docsearch` → `docinfo` (+ `ssl_search`); build on a find; partial fit → `CONFUSION`; reject only for documented incompatibility, stated.
 8. **`templatesearch`:** task text or a same-goal paraphrase, never keywords.
-9. **Template reuse:** a fitting template is the base; reject only for a named reason; state it on a `Template:` line.
+9. **Template reuse:** a fitting template is the base; reject only for a named reason; report its disposition.
 
 ### B. Limits and non-determinism
 
@@ -116,7 +116,7 @@ Before writing or reviewing BSL/metadata, load `content/rules/coding-standards.m
 
 ## Project memory
 
-1C code/metadata work and corrections → `content/rules/project-memory.md`; `content/rules/memory-setup.md` once per session. Recall before every change (scope by triage, quick-fix included); save corrections in the same turn; report `Memory:`; no secrets/PII.
+1C changes and corrections → `content/rules/project-memory.md`; `content/rules/memory-setup.md` once per session. Recall before design (scope by triage); save corrections in the same turn; no secrets/PII.
 
 ## Rules self-improvement (`/evolve` + `LLM-RULES.md`)
 
