@@ -77,12 +77,12 @@ Skipping a gate without recording it under Risks is a defect — the same rule a
 
 ### Gate 3a — Live-IB smoke check (conditional, `1c-data-mcp`)
 
-Gate 3a supplies narrowly scoped evidence from a dev/test infobase. Distinguish **query parsing**, **metadata resolution**, and **result correctness**: these are separate checks. A clean `validatequery` result proves parsing only; it does not close the metadata or result questions left by static validation.
+Gate 3a supplies narrowly scoped evidence from a dev/test infobase. When eligible `1c-data-mcp` tools are available, the agent selects focused behavioural checks needed to resolve a concrete correctness question; UI policy, verification depth and orchestration do not disable them. Distinguish **query parsing**, **metadata resolution**, and **result correctness**: these are separate checks. A clean `validatequery` result proves parsing only; it does not close the metadata or result questions left by static validation.
 
 **Triggers — run when all of the following hold:**
 
-1. The change authored or modified 1C **query text** (module code, DCS scheme, dynamic list) **or** a self-contained BSL function with no side effects whose result the static validators cannot confirm.
-2. `1c-data-mcp` is exposed in the current session (`validatequery` / `vcexecutecode` visible in the tool schema).
+1. The change authored or modified 1C **query text** (module code, DCS scheme, dynamic list), a self-contained side-effect-free BSL function whose result the static validators cannot confirm, **or** the agent identifies a concrete behavioural result / boundary case requiring a read-only check. State the expected outcome before execution; do not add unrelated test runs.
+2. The required `1c-data-mcp` capability is exposed in this session and allowed by tool policy (`validatequery`, `vcexecutequery` or `vcexecutecode`, as applicable).
 3. The connected infobase is a development / test base (`INFOBASE_ROLE`). **On a production infobase this gate is not run** — record the skip and move on.
 
 **Execution:**

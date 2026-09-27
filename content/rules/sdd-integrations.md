@@ -33,6 +33,8 @@ For full-cycle development, `propose → apply → archive` means specify → im
 
 The ruleset does not provide unit, regression or acceptance test-suite authoring, frameworks or runners. Do not introduce those suites as an implicit full-cycle obligation. This does not prohibit planning tests or acceptance/regression scenarios: the agent must verify the result within the cycle using supported, authorized methods. Compare expected and actual outcomes through an applicable infobase check (Gate 3a) or UI confirmation under `UI_TESTING`. Static validators and review are separate evidence; neither alone proves runtime behaviour. UI-specific criteria require UI evidence unless explicitly waived; disabling UI does not waive other checks. If a requested automated suite needs separate tooling, state that gap instead of promising built-in support.
 
+When eligible `1c-data-mcp` capabilities are available, plan focused result checks wherever they close a concrete correctness gap; execute them during apply verification under Gate 3a's read-only dev/test scope. `UI_TESTING=off`, a lower verification depth or economy orchestration does not disable these checks. The absence of a test-suite framework is not a reason to omit them.
+
 Propose is ready only when each criterion has a verification task and executable acceptance conditions. Preserve this mapping during `/opsx:update`; do not weaken approved criteria to fit the implementation. If an older change lacks DoD or verification tasks, derive them from its approved requirements and this contract before apply. Ask only when that exposes a material unresolved decision; adding the required checks alone needs no new approval.
 
 ### Apply until DoD is satisfied
