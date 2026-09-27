@@ -8,7 +8,8 @@ name: validate-rules
 # sync runs only locally (tools/validate-rules.ps1 -StandardsDir <path>); in CI it
 # is skipped with a notice. See tools/validate-rules.ps1.
 #
-# Two jobs, because the skill ships two runtimes:
+# Jobs cover the content skills and both metadata-tool runtimes:
+#   content-skills (linux) — real DOCX output and offline Gemini model selection.
 #   validate (windows) — the ruleset validator, the PowerShell tool regressions,
 #     and the full Python suite including the PowerShell/Python parity and
 #     installer packaging gates, which need a PowerShell host.
@@ -16,9 +17,8 @@ name: validate-rules
 #     platform they exist for. Runs with --python-only, so the PowerShell-bound
 #     cases are skipped rather than silently passing.
 #
-# Neither job reaches the network during the tests themselves: every case
-# materializes its fixtures from tools/tests/fixtures. The only dependency is
-# lxml, installed explicitly below.
+# Tests do not reach the network: they use local fixtures and mocked API calls.
+# Runtime dependencies (docx and lxml) are installed explicitly below.
 
 on:
   push:
@@ -27,6 +27,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  content-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install DOCX runtime
+        run: npm ci --prefix content/skills/md-to-docx --ignore-scripts --no-audit --no-fund
+      - name: Markdown to DOCX regressions
+        run: python -B tools/tests/md-to-docx-regression.py
+      - name: Transcription model regressions (offline)
+        run: python -B tools/tests/transcribe-regression.py
+
   validate:
     runs-on: windows-latest
     steps:
