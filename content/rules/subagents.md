@@ -30,6 +30,8 @@ category: workflow
 
 **Delegate when at least one countable fact holds:**
 
+First apply triage: standalone `docs-fix` and `quick-fix` tasks stay with the parent, including in economy mode. The thresholds below do not override those exceptions. Spec-authoring may delegate research and artifact drafting under `sdd-integrations.md`; it does not enter the implementation pipeline.
+
 - the change touches **≥ 3 modules** or **≥ 2 metadata objects** (forms, layouts, roles and DCS schemas count as objects);
 - an **independent read-only track** exists — exploration, impact listing or pattern search that `1c-explorer` can run while the parent continues, or a review the user explicitly requested;
 - the task needs **≥ 5 files read** before the first edit or a **mechanical edit across ≥ 5 files** — the parent's context window is the bottleneck;
@@ -74,7 +76,7 @@ Owned by `content/rules/subagent-core.md` — CONFUSION on material forks, MCP-f
 | **1c-refactoring** | Dead-code cleanup, consolidation, or deduplication across multiple modules | Refactor is local to one procedure |
 | **1c-performance-optimizer** | User reports slowness, or query / loop optimization is the explicit task | No performance concern was raised |
 | **1c-error-fixer** | Quick fix of syntax / runtime errors / BSL LS warnings without architectural changes (tier `coding` — it authors production code, often on transactional paths) | The fix requires architectural rework — escalate to `1c-architect` / `1c-developer` |
-| **1c-tester** | User asks to verify changes via deploy + UI automation against a test infobase, **and** `UI_TESTING` allows it (canon — `dev-standards-env.md`) | No test infobase; purely static task; `UI_TESTING=off`, or `manual` without an explicit UI-test request — never auto-trigger |
+| **1c-tester** | Applicable UI verification with effective `UI_TESTING=auto`, or explicit UI-test request under `manual`; authorized dev/test target required (`dev-standards-env.md`) | No test infobase; purely static task; `off`, or `manual` without an explicit UI-test request |
 | **1c-code-reviewer** | **Only when the user explicitly asks for a code review** and the reviewer model gate below is satisfied | Auto-triggering after edits is forbidden; no explicitly selected reviewer model |
 | **1c-doc-writer** | User-facing documentation: user guides, admin manuals, tutorials, codemaps, API references | Inline code documentation (module / procedure headers) — that is the developer's responsibility |
 
@@ -160,9 +162,10 @@ validation risks, and a suggested write scope for the implementation step.
 ```text
 Bounded implementation. You are not alone in the codebase; do not revert or overwrite edits
 outside your scope. Edit only: <files>. Implement <specific change> per the approved plan.
-Follow project rules (dev-standards-code-style, module-structure). For BSL run syntaxcheck →
-check_1c_code → review_1c_code on every touched module within the verification budget;
-for metadata XML run verify_xml (and both chains when it embeds BSL).
+Follow project rules (dev-standards-code-style, module-structure). For BSL select the applicable
+gates and budget from verification-policy.md using the supplied task path, depth and risk;
+run selected validators in syntaxcheck → check_1c_code → review_1c_code order.
+For metadata XML run verify_xml; embedded/generated BSL also needs its applicable BSL gates.
 Return: changed files, diff summary against the plan, checks performed, unresolved risks.
 ```
 

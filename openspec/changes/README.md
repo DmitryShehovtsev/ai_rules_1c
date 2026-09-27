@@ -59,16 +59,21 @@ The change folder is then moved to `archive/<YYYY-MM-DD>-<change-name>/`.
 ## Definition of Done for full-cycle changes
 
 `proposal.md` contains `## Definition of Done`: criterion IDs linked to
-delta requirements/scenarios, applicable gates, acceptance/regression tests,
+delta requirements/scenarios, applicable gates, agent-executed behavioural checks,
 and final review. Each delta requirement carries its verification method and
 expected outcome inside the requirement block (see the
 [spec template](../specs/README.md)). Specify required test data/environment.
+
+Planning tests and acceptance/regression scenarios is supported. The ruleset
+does not supply unit, regression or acceptance test-suite authoring or runners.
+The agent confirms outcomes within the cycle through supported infobase or UI
+checks, with the applicable authorization and `UI_TESTING` policy.
 
 Map every criterion to a verification task, for example:
 
 ```markdown
 ## 2. Verification and completion
-- [ ] 2.1 Run acceptance and regression scenarios for DoD-1; compare actual results with the linked expectations.
+- [ ] 2.1 Execute the planned behavioural scenarios through an allowed method for DoD-1; compare actual results with the linked expectations.
 - [ ] 2.2 Run applicable validation gates on the final artifacts (DoD-2).
 - [ ] 2.3 Review requirements, correctness, regressions, security and test coverage; resolve blocking findings (DoD-3).
 - [ ] 2.4 Reconcile all DoD criteria with current evidence before declaring apply complete.

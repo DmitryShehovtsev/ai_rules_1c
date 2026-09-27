@@ -34,6 +34,8 @@ Subagent-specific: the gates bind **every** mutating subagent, not only `1c-meta
 
 Canon — `content/rules/verification-gates.md` (ordered hard gates: `syntaxcheck` → `check_1c_code` → `review_1c_code` → impact analysis → metadata XML validation, as applicable; graceful degradation when a validator is not exposed — the skip is recorded in the report, never silent). Retry budget — `content/rules/verification-policy.md → "Validator budget"`.
 
+Resolve the task path, `VERIFICATION_DEPTH` and promotion triggers through `verification-policy.md` before running validators. Chains in role prompts specify execution order, not an unconditional request for all three tools. Delegation and `ORCHESTRATION=economy` never change gate selection. Mark a gate outside the selected scope as not applicable, never passed; unavailable required gates remain unverified.
+
 Subagent-specific: the agent that makes the final edit owns the validator run; for every mutated artifact report its content fingerprint, each applicable validator's result and run count **after the final edit**, and relevant execution context per `verification-gates.md → Gate execution and evidence reuse`. The parent reuses matching evidence instead of repeating validators on unchanged content. Read-only agents (`1c-explorer`, `1c-analytic`, `1c-arch-reviewer`, `1c-code-reviewer`, `1c-doc-writer` when not writing project sources) skip the mutating gates but follow every other item of this section.
 
 ### Scope and done criteria

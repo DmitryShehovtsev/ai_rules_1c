@@ -59,7 +59,7 @@ Before removing ANYTHING:
 - [ ] Not part of the public API; dependent code reviewed; affected functionality verified
 
 After each change:
-- [ ] `syntaxcheck` → `check_1c_code` → `review_1c_code` pass on every touched module; retry budget — `content/rules/verification-policy.md → "Validator budget"`
+- [ ] Applicable validators pass on every touched module in `syntaxcheck` → `check_1c_code` → `review_1c_code` order; gate selection, promotion floor and retry budget — `content/rules/verification-policy.md`
 - [ ] No new errors introduced; the change is documented
 
 ## Refactoring Report Format
@@ -100,7 +100,7 @@ After each change:
 
 ## Verification
 
-- [ ] Validator chain passed (syntaxcheck → check_1c_code → review_1c_code)
+- [ ] Validator chain selected by `content/rules/verification-policy.md` passed
 - [ ] Functionality verified
 - [ ] Performance checked
 - [ ] No regressions found

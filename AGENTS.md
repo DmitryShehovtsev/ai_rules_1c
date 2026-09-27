@@ -23,7 +23,7 @@ Load `content/rules/verification-policy.md` for triage and gates; task paths are
 1. **Docs-fix** — prose only, no BSL/metadata or verifiable 1C claims: structural checks of edited files and direct references, no BSL validators.
 2. **Spec-authoring** — OpenSpec with concrete 1C facts: confirm them via MCP first (`content/rules/sdd-integrations.md`).
 3. **Quick-fix** — one logical change in one module within `QUICKFIX_MAX_LINES` (default 40) or one isolated unwired metadata addition: two-line plan → edit → gates at `VERIFICATION_DEPTH`.
-4. **Full-cycle** — everything else or material doubt: steps 1–5 to Definition of Done; review and UI confirmation unless explicitly waived.
+4. **Full-cycle** — everything else or material doubt: steps 1–5 to Definition of Done; review and behavioural confirmation unless explicitly waived. UI criteria follow `UI_TESTING`.
 
 Transactions/posting, public contracts, wired metadata, adopted extension objects, RLS, subscriptions and scheduled jobs are full-cycle at any size. Reduced planning never waives validation or metadata tooling.
 

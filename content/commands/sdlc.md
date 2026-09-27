@@ -11,7 +11,7 @@ Select the project's verification profile through `VERIFICATION_DEPTH` in `.dev.
 
 Use these names in Russian confirmations:
 
-- `lite` — **Облегчённый**: reduced checks for low-risk edits; selecting it also sets `UI_TESTING=off`.
+- `lite` — **Облегчённый**: reduced checks for eligible low-risk edits.
 - `standard` — **Стандартный**: the default verification depth.
 - `full` — **Полный**: all three static validators for touched BSL, with the full retry budget.
 
@@ -28,10 +28,10 @@ Trim whitespace and compare case-insensitively:
 ## Apply a profile
 
 1. Read the current `VERIFICATION_DEPTH` and `UI_TESTING`. Missing / empty / invalid values use their defaults from `dev-standards-env.md`.
-2. Set `VERIFICATION_DEPTH` to the selected profile. For `lite`, also set `UI_TESTING=off`; for `standard` and `full`, preserve `UI_TESTING`. These profiles do not restore the pre-lite UI setting; report the resulting value explicitly.
-3. Edit only these applicable keys in `.dev.env`, replacing the existing line or appending a missing key. Preserve all other content. If the file is missing, apply the choice to the current session only, say it is not persisted, and point to `install.ps1 init` for project setup; do not create a partial file or start installation as part of this command.
+2. Set `VERIFICATION_DEPTH` to the selected profile. Preserve `UI_TESTING` for every profile; explicit UI control is `/uitests on|manual|off|status` (`content/commands/uitests.md`).
+3. Edit only `VERIFICATION_DEPTH` in `.dev.env`, replacing the existing line or appending a missing key. Preserve all other content. If the file is missing, apply the choice to the current session only, say it is not persisted, and point to `install.ps1 init` for project setup; do not create a partial file or start installation as part of this command.
 4. Apply the effective profile immediately. No re-render, `install.ps1 update`, or client restart is required.
-5. Confirm in Russian: the profile's name and slug, project persistence or session-only scope, the applicable verification depth, and the effective `UI_TESTING` value. If selecting `lite` disables `auto` UI testing, state that automatic UI tests are now disabled.
+5. Confirm in Russian: the profile's name and slug, project persistence or session-only scope, the applicable verification depth, and the preserved effective `UI_TESTING` value.
 
 ## Status
 

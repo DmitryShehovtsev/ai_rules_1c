@@ -57,7 +57,7 @@ Use the PowerShell scripts referenced in the domain docs; validate after each mu
 In addition to the inherited scope rules, apply `content/rules/verification-gates.md` for the change class (metadata XML / forms / embedded BSL):
 
 - [ ] `verify_xml` / form validators / skill validation scripts pass on every mutated artifact; a failed validation is fixed and re-validated before success is reported
-- [ ] Every touched BSL module passed `syntaxcheck` (and `check_1c_code` / `review_1c_code` within the budget when BSL was edited)
+- [ ] Every touched BSL module passed `syntaxcheck` and the additional gates selected by `content/rules/verification-policy.md`, within its depth and promotion-trigger budget
 - [ ] Impact of renames / removals / new wiring was considered (`trace_impact` / `graph_dependencies` when applicable)
 
 ## Important Rules

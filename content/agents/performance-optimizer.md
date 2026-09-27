@@ -48,7 +48,7 @@ For each fix, in severity order:
 1. Verify current behaviour
 2. Apply the minimal change that fixes performance
 3. Verify functionality is preserved
-4. Run `syntaxcheck` → `check_1c_code` → `review_1c_code` on the touched module; retry budget — `content/rules/verification-policy.md → "Validator budget"`
+4. Run the gates selected by `content/rules/verification-policy.md` on the touched module in `syntaxcheck` → `check_1c_code` → `review_1c_code` order, using its depth, promotion floor and retry budget
 5. Document the performance improvement
 
 ## Done Criteria

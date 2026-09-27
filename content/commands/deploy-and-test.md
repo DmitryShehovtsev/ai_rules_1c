@@ -116,11 +116,11 @@ Apply the **Update retry loop** from `/update1cbase` (`content/commands/update1c
 
 UI testing is an **opt-in** step controlled by `UI_TESTING` (values and default — `dev-standards-env.md → "UI_TESTING — web UI-testing mode"`). It burns a lot of tokens, so it is not run by default. Resolve the effective value and act on it:
 
-- **`off`** — skip this step; finish with: "UI tests skipped: web testing is disabled in `.dev.env` (`UI_TESTING=off`)."
+- **`off`** — skip this step; report the effective policy and point to `/uitests on` or `/uitests manual`. Apply an explicit enable-and-run instruction through `/uitests` before resolving this branch; it needs no second toggle confirmation.
 - **`manual`** — run this step **only if the user explicitly asked to run UI tests** in the current request. Otherwise skip it and finish with: "UI tests skipped: `UI_TESTING=manual` — run only on explicit request."
 - **`auto`** — run this step automatically (subject to the `INFOBASE_PUBLISH_URL` check below).
 
-If UI testing is to run but `INFOBASE_PUBLISH_URL` is empty, skip this step and finish with: "UI tests skipped: `INFOBASE_PUBLISH_URL` is not set in `.dev.env`."
+If `INFOBASE_PUBLISH_URL` is empty, skip an automatic UI run and mark affected criteria unverified with this reason. For an explicitly requested UI run, ask for the missing URL and continue independent work; do not claim the tests passed. Policy `off` takes precedence and does not trigger this question.
 
 ### Step 4a. Browser-tool preflight (before any navigation)
 

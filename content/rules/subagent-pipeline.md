@@ -24,7 +24,7 @@ Full-cycle alone does **not** trigger the pipeline. The **standard path** is the
 
 ### Stage 1 — Triage (parent agent)
 
-Apply the matrix from `AGENTS.md → Triage: Quick-fix vs Docs-fix vs Spec-authoring vs Full-cycle`. **Only** full-cycle tasks for which delegation was chosen enter the pipeline; other full-cycle tasks follow the standard path (direct execution by the parent per `AGENTS.md`, same closing gate). If the task is a quick-fix, edit directly and run the strict applicable gate from `verification-gates.md` (Gates 1–3 for BSL; Gate 5 for pure metadata XML; both when metadata embeds BSL). Tasks on the **docs-fix** path (Markdown / rules / docs only) bypass the pipeline and the BSL validators — apply the structural checks from `AGENTS.md → Triage` instead. Tasks on the **spec-authoring** path (OpenSpec artifacts with 1C facts) also bypass the pipeline but carry the MCP evidence obligations from `sdd-integrations.md`.
+Apply the matrix from `AGENTS.md → Triage: Quick-fix vs Docs-fix vs Spec-authoring vs Full-cycle`. **Only** full-cycle tasks for which delegation was chosen enter the pipeline; other full-cycle tasks follow the standard path (direct execution by the parent per `AGENTS.md`, same closing gate). For quick-fix, edit directly and select gates by `verification-policy.md → Quick-fix gate`, including depth, explicit review requests and promotion triggers. Pure metadata XML requires Gate 5; metadata that embeds or generates BSL follows that policy's combined Gates 1–3 + 5 rule. Tasks on the **docs-fix** path (Markdown / rules / docs only) bypass the pipeline and the BSL validators — apply the structural checks from `AGENTS.md → Triage` instead. Tasks on the **spec-authoring** path (OpenSpec artifacts with 1C facts) also bypass the pipeline but carry the MCP evidence obligations from `sdd-integrations.md`.
 
 The detailed promotion triggers (transactional paths, public exports, adopted objects, subscriptions / jobs / RLS, wired metadata) and the isolated-metadata-addition eligibility are owned by `verification-policy.md → Triage details` — apply them as written. When in doubt, full-cycle wins.
 
@@ -43,7 +43,7 @@ The plan must satisfy these acceptance criteria before stage 3:
 - Each task is **one coherent unit of work** that an enthusiastic junior 1C developer with no project context can execute: a procedure / function, an event handler, a form, a register, or a coherent group of related edits within one module. Do not shred the plan into ≤20-line fragments — over-fragmentation multiplies verification points and handoffs without adding safety.
 - Each task names exact file paths and exact procedure names — no "update the related modules".
 - Verification points are attached per module / coherent group (`syntaxcheck`, an MCP query, an assertion, a manual reproduction) — not per every few lines.
-- DoD links acceptance criteria to verification (gates, UI confirmation) and final review tasks; explicit waivers are recorded (`sdd-integrations.md` for OpenSpec).
+- DoD links acceptance criteria to verification (gates, behavioural confirmation, UI where applicable) and final review tasks; explicit waivers are recorded (`sdd-integrations.md` for OpenSpec).
 - Risks and rollback are explicit, especially for metadata changes (UUID stability, register movements, role grants).
 - The plan is approved — see the approval gate below.
 
@@ -75,7 +75,7 @@ Stage 3 is **sequential by default**: 1C metadata is densely cross-referenced, a
 The implementation subagent is responsible for:
 
 - editing the BSL / XML;
-- running the ordered validator chain on every touched module — `syntaxcheck` → `check_1c_code` → `review_1c_code` — and recording per-artifact fingerprints, validator results, run counts and relevant execution context after the final edit so Stage 5 can reuse matching evidence without duplicate calls;
+- running the validators selected by `verification-policy.md` (depth, promotion floor, review requests and budget) in order on every touched module, plus Gate 5 for metadata XML; recording per-artifact fingerprints, validator results, run counts and relevant execution context after the final edit so Stage 5 can reuse matching evidence without duplicate calls;
 - preserving module headers, regions and the project's code style (`standards(name="dev-standards-code-style")`);
 - removing only the imports / variables / procedures **that its own changes made unused** — never pre-existing dead code;
 - summarizing the diff against the plan, file by file;
@@ -125,13 +125,13 @@ Report `critical` / `major` / `minor` findings (`subagent-core.md → Report voc
 
 Run the closing gate from `verification-gates.md`. This is non-negotiable for full-cycle tasks. Apply its **Gate execution and evidence reuse** rule: accept fresh Stage 3 evidence for Gates 1–3, run only missing or stale gates, then complete every other applicable hard / soft gate (`verification-delivery.md`).
 
-Run planned UI confirmation as `UI_TESTING` allows unless explicitly cancelled, fix failures and reconcile DoD against current evidence (`sdd-integrations.md`). An implementation handoff or completed task list alone is not completion. Blocked checks remain open; only the user can waive UI confirmation or review.
+Run planned behavioural confirmation, including UI as `UI_TESTING` allows, fix failures and reconcile DoD against current evidence (`sdd-integrations.md`). An implementation handoff or completed task list alone is not completion. Blocked checks remain open; only the user can waive UI confirmation or review.
 
 ## When to deviate
 
 Once inside the pipeline, deviate from its stages only with an explicit reason:
 
-- pure documentation changes — `1c-doc-writer` directly, no plan / dev / review pipeline;
+- pure documentation tasks (`docs-fix`) — parent directly, no plan / dev / review pipeline; a documentation subtask within an already delegated full-cycle change may use `1c-doc-writer` under the catalog's scope;
 - pure UI test runs against an existing build — `1c-tester` directly, only when `UI_TESTING` allows it (`verification-delivery.md → Soft gate D`);
 - a pure architectural review with no code change — `1c-arch-reviewer` directly when the reviewer model gate is satisfied; otherwise the parent performs the requested review.
 

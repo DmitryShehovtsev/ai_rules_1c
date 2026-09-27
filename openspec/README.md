@@ -106,7 +106,7 @@ as user-modified, in which case `1c-rules` preserves your edits).
 1. **propose** — AI creates `proposal.md`, delta `specs/`, `design.md`, and
    `tasks.md`. Full-cycle artifacts define an observable Definition of Done
    (DoD), with acceptance criteria and tasks for testing and review.
-2. **apply** — AI implements, runs tests, reviews the final change, fixes
+2. **apply** — AI implements, executes verification scenarios, reviews the final change, fixes
    blocking findings and reconciles DoD with evidence. Testing and review
    are required for full-cycle unless explicitly waived by the user; waivers
    are recorded separately from passes. CLI `all_done` / checked tasks alone
@@ -115,7 +115,10 @@ as user-modified, in which case `1c-rules` preserves your edits).
    is moved to `changes/archive/<date>-<change-name>/`.
 
 Browser testing retains its `UI_TESTING` policy; disabling it does not cancel
-all testing. Separate reviewer agents retain their launch conditions; the
+other verification. Test planning is supported; the ruleset supplies no unit,
+regression or acceptance test-suite framework or runner. The agent must compare
+expected and actual outcomes using the supported, authorized checks within apply.
+Separate reviewer agents retain their launch conditions; the
 parent performs full-cycle review by default. The completion contract lives
 in [`sdd-integrations.md`](../content/rules/sdd-integrations.md).
 

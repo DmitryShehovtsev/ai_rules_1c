@@ -38,7 +38,7 @@ The package reuses the ruleset's delivery vocabulary (`content/rules/verificatio
 | `unverified` | a fact the package relies on was not established — a property value not read, a type not proven, a match count not counted, a scenario not confirmed |
 | `blocked — <reason>` | a correct block cannot be written (missing code, missing contract, stale source); nothing is invented in its place |
 
-Behaviour is confirmed only by the gates, by UI confirmation under `.dev.env` `UI_TESTING` (`1c-tester`, `/deploy-and-test` — `content/rules/verification-delivery.md → Soft gates — run when applicable`) and by review. A scenario nobody confirmed is `unverified`, never «done». The usual evidence lines (`Memory:`, `Template:`, `Docs:`, …) follow the package when they apply; `Metadata tooling:` / `Repository tooling:` do not, because the package changes nothing.
+Behaviour requires expected-vs-actual evidence from an authorized infobase check (Gate 3a) or UI confirmation under `UI_TESTING` (`1c-tester`, `/deploy-and-test` — `content/rules/verification-delivery.md → Soft gates — run when applicable`). Static gates and review alone do not prove runtime outcomes. Plan checks in the package; a scenario nobody confirmed is `unverified`, never «done». The usual evidence lines (`Memory:`, `Template:`, `Docs:`, …) follow the package when they apply; `Metadata tooling:` / `Repository tooling:` do not, because the package changes nothing.
 
 ## Boundaries
 

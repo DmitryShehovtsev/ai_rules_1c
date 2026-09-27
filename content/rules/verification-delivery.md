@@ -44,7 +44,7 @@ Full-cycle: review is required unless the user explicitly prohibits it; otherwis
 
 ### Soft gate D — UI confirmation policy
 
-UI confirmation is the ruleset's only behavioural check. `UI_TESTING` decides when it runs: `manual` / empty = explicit request; `auto` = automatic with `INFOBASE_PUBLISH_URL`; `off` = disabled. Canon: `dev-standards-env.md`; driver order: `ui-testing-tools.md`. If an essential DoD scenario remains unconfirmed, report it as unverified, not done (`sdd-integrations.md`).
+Behaviour needs expected-vs-actual evidence (Gate 3a or UI), not static checks/review alone. `/uitests` sets `UI_TESTING`: `manual` / empty = explicit request; `auto` = automatic with `INFOBASE_PUBLISH_URL`; `off` = disabled. Canon: `dev-standards-env.md`; drivers: `ui-testing-tools.md`. Unconfirmed essential DoD scenarios stay unverified (`sdd-integrations.md`).
 
 ## Delivery summary — what the user sees
 

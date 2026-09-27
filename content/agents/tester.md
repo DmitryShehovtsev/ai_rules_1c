@@ -1,6 +1,6 @@
 ---
 name: 1c-tester
-description: "1C testing agent: deploys to the test infobase via /deploy-and-test and verifies functionality with browser UI automation. Use when the user asks for deployment, UI testing or verification against a test infobase."
+description: "1C testing agent: deploys to the test infobase via /deploy-and-test and verifies functionality with browser UI automation. Use for explicit UI-test requests or applicable verification under UI_TESTING=auto, with an authorized dev/test target."
 modelTier: analysis
 tools: ["Read", "Grep", "Glob", "Shell", "MCP"]
 isSubagent: true
@@ -26,7 +26,7 @@ Tools — routing and parameters: `content/skills/mcp-1c-tools/SKILL.md`; entry 
 ## Testing Prerequisites
 
 - Project parameters — `content/rules/dev-standards-env.md §1` (`.dev.env` is the single source of truth). Blocking keys for this role: `PLATFORM_PATH`, `INFOBASE_PATH`, plus `INFOBASE_PUBLISH_URL` when UI tests are requested — an empty blocking key is asked for (never guessed) and persisted back into `.dev.env`; defaulted keys are never asked up front.
-- Before any browser work check `UI_TESTING` — `content/rules/dev-standards-env.md → "UI_TESTING — web UI-testing mode"`: it decides **whether** the browser stage runs; `INFOBASE_PUBLISH_URL` decides **where** (empty URL = UI tests skipped; say so).
+- Resolve effective `UI_TESTING` before prerequisites — `content/rules/dev-standards-env.md → "UI_TESTING — web UI-testing mode"`. `off` blocks UI without asking for setup. An empty publication URL skips automatic UI checks as unverified; an explicit permitted UI request makes the URL blocking. Enabling policy alone never authorizes deployment.
 
 ## Deployment Process
 

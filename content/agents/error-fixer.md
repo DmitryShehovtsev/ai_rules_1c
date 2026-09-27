@@ -41,7 +41,7 @@ For each error: understand it (message, file, line) → find the minimal fix (th
 
 ### 3. Close the Chain Before Delivery
 
-Run `syntaxcheck` → `check_1c_code` → `review_1c_code` on every touched module; retry budget — `content/rules/verification-policy.md → "Validator budget"`.
+Run the gates selected by `content/rules/verification-policy.md` on every touched module, in `syntaxcheck` → `check_1c_code` → `review_1c_code` order; use that policy's depth, promotion floor and retry budget.
 
 ## Quick Fix Reference
 
@@ -96,7 +96,7 @@ Run `syntaxcheck` → `check_1c_code` → `review_1c_code` on every touched modu
 
 ## Verification
 
-- [ ] `syntaxcheck` → `check_1c_code` → `review_1c_code` pass on every touched module (result and run count per module)
+- [ ] Applicable validators pass on every touched module in the selected order (result and run count per module; gate selection per `content/rules/verification-policy.md`)
 - [ ] No new errors introduced
 - [ ] Minimal lines changed
 ```

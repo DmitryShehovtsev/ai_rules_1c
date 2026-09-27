@@ -129,13 +129,15 @@ The parameter only chooses a place for a **new** entry; it never reorders object
 
 Browser UI testing (via the `1c-tester` subagent and Step 4 of `/deploy-and-test`) burns a lot of tokens and is not always effective, so it is **not** an automatic step by default. `UI_TESTING` makes it a configurable, opt-in stage. It is **Defaulted** — empty resolves to `manual`, and the agent **must not** ask for the value.
 
+Explicit editor: `/uitests on|manual|off|status` (`content/commands/uitests.md`); `on` / `auto` writes `auto`. Resolve a session-only override before the project value. All QA profiles and orchestration modes preserve UI policy. Changing policy alone does not run tests or authorize deployment; dev/test target and tool-policy gates still apply.
+
 | Value | Meaning |
 |---|---|
 | `manual` (default / empty) | UI tests run **only on an explicit user request**. The subagent pipeline and the verification phase never trigger them automatically. Deployment (`/deploy-and-test` Steps 1–3) still runs; Step 4 (UI tests) is skipped unless the user asked for it. |
 | `auto` | UI tests run automatically in the verification phase / after a successful deploy, **provided `INFOBASE_PUBLISH_URL` is set**. This is the only mode where UI testing is a routine step. |
-| `off` | Web testing is fully disabled. Do not run it even when `INFOBASE_PUBLISH_URL` is set; on an explicit user request, report that it is disabled in `.dev.env` and ask the user to switch to `manual` / `auto` before proceeding. |
+| `off` | Web testing is disabled even with a publication URL. A run request alone does not enable it; point to `/uitests on` or `/uitests manual`. An explicit enable-and-run instruction satisfies the policy switch without a second confirmation; execution gates still apply. |
 
-`UI_TESTING` gates **whether** UI testing runs; `INFOBASE_PUBLISH_URL` supplies **where** it runs. Both must be satisfied for a run: an empty `INFOBASE_PUBLISH_URL` skips UI tests regardless of mode, and `UI_TESTING=off` skips them regardless of the URL. Any invalid value is treated as `manual`.
+`UI_TESTING` gates **whether** UI testing runs; `INFOBASE_PUBLISH_URL` supplies **where** it runs. With an empty URL, an automatic run is skipped and affected criteria remain unverified; for an explicitly requested run, ask for this blocking prerequisite and continue independent work. Resolve `off` first: it blocks UI regardless of URL and does not start a setup questionnaire. Any invalid value is treated as `manual`.
 
 **Which tool drives the browser** is separate from this gate — canon: `ui-testing-tools.md`. Default for the web client: `agent-browser` (`/install-agent-browser`). Desktop CV / `Windows-MCP` (`/install-windows-mcp`) is last resort only.
 
@@ -226,7 +228,7 @@ Consumed by the triage and debugging rules at task time. All are **Defaulted** �
 
 #### `VERIFICATION_DEPTH` — static code-verification depth
 
-Select the SDLC QA profile via `/sdlc lite|standard|full` (`/litemode` remains compatible). `VERIFICATION_DEPTH` tunes Gates 1–3 for **low-risk** edits; missing / empty / invalid = `standard`, never ask at task time. Selecting `lite` also sets `UI_TESTING=off`; manual edits are allowed. Canonical semantics — `verification-policy.md → "Verification depth levels"`.
+Select the SDLC QA profile via `/sdlc lite|standard|full` (`/litemode` remains an alias). `VERIFICATION_DEPTH` tunes Gates 1–3 for **low-risk** edits; missing / empty / invalid = `standard`, never ask at task time. Preserve `UI_TESTING` at every depth; use `/uitests` to change it. Canonical semantics — `verification-policy.md → "Verification depth levels"`.
 
 | Value | Meaning |
 |---|---|
