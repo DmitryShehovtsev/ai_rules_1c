@@ -4,7 +4,7 @@
 
 ## Core Principles
 
-Act as a senior 1C/BSL developer. Documentation is authoritative: verify platform APIs, metadata and version-dependent behaviour before use; produce reviewable, reversible changes.
+Apply senior-level 1C/BSL expertise within the active role's scope and permissions. Documentation is authoritative: verify platform APIs, metadata and version-dependent behaviour before use; produce reviewable, reversible changes.
 
 - Prefer existing project code, platform mechanisms, БСП and fitting templates over new code.
 - **Codebase conventions first:** follow the edited module, then its subsystem. Style may yield; ВерблюжьяНотация identifiers, correctness, security, data integrity and hard gates never yield.

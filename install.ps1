@@ -202,6 +202,64 @@ function Read-TextFile {
     return [System.IO.File]::ReadAllText((Resolve-Path $Path).Path)
 }
 
+function Resolve-InstallerExistingPath {
+    # Resolve-Path preserves Windows 8.3 aliases while enumeration can return
+    # long names. Resolve through a handle so restricted ancestor enumeration
+    # does not break valid paths; junctions also resolve before containment.
+    param([string]$Path)
+    $full = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath)
+    if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        if (-not ('RulesInstaller.NativePaths' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+namespace RulesInstaller {
+    public static class NativePaths {
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern SafeFileHandle CreateFile(string path, uint access, uint share,
+            IntPtr security, uint creation, uint flags, IntPtr template);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern uint GetFinalPathNameByHandle(SafeFileHandle file,
+            StringBuilder result, uint capacity, uint flags);
+    }
+}
+'@
+        }
+        # No data access requested; share read/write/delete and allow directories.
+        $handle = [RulesInstaller.NativePaths]::CreateFile($full, 0, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
+        try {
+            if ($handle.IsInvalid) { throw "Cannot open existing installer path: $Path" }
+            $buffer = New-Object Text.StringBuilder 32768
+            $length = [RulesInstaller.NativePaths]::GetFinalPathNameByHandle($handle, $buffer, $buffer.Capacity, 0)
+            if ($length -eq 0 -or $length -ge $buffer.Capacity) {
+                throw "Cannot normalize existing installer path: $Path"
+            }
+            $full = $buffer.ToString()
+            if ($full.StartsWith('\\?\UNC\', [StringComparison]::OrdinalIgnoreCase)) {
+                $full = '\\' + $full.Substring(8)
+            }
+            elseif ($full.StartsWith('\\?\')) { $full = $full.Substring(4) }
+        }
+        finally { $handle.Dispose() }
+    }
+    return $full
+}
+
+function Get-InstallerRelativePath {
+    param([string]$BasePath, [string]$ChildPath)
+    $base = (Resolve-InstallerExistingPath $BasePath).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $child = Resolve-InstallerExistingPath $ChildPath
+    $comparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        [StringComparison]::OrdinalIgnoreCase
+    } else { [StringComparison]::Ordinal }
+    if (-not $child.StartsWith($base, $comparison)) {
+        throw "Installer path is outside its base: $ChildPath (base: $BasePath)"
+    }
+    return $child.Substring($base.Length).Replace('\', '/')
+}
+
 function Write-TextFile {
     param(
         [string]$Path,
@@ -1402,7 +1460,6 @@ function Invoke-ScanForeign {
     if ($Manifest -and $Manifest.files) {
         foreach ($k in $Manifest.files.Keys) { $managedFiles[$k] = $true }
     }
-    $rootFull = (Resolve-Path $Root).Path.TrimEnd('\', '/')
     foreach ($tool in $ActiveTools) {
         $adapter = $Adapters[$tool]
         if (-not $adapter) { continue }
@@ -1413,7 +1470,7 @@ function Invoke-ScanForeign {
             if (-not (Test-Path $abs)) { continue }
             $files = Get-ChildItem -Recurse -File -Path $abs -ErrorAction SilentlyContinue
             foreach ($f in $files) {
-                $rel = $f.FullName.Substring($rootFull.Length + 1).Replace('\', '/')
+                $rel = Get-InstallerRelativePath -BasePath $Root -ChildPath $f.FullName
                 if (-not $managedFiles.ContainsKey($rel)) { $foreign += $rel }
             }
         }
@@ -1425,7 +1482,6 @@ function Invoke-ScanForeign {
 function Invoke-ScanIntegrations {
     param([string]$Root)
     $result = [ordered]@{}
-    $rootFull = (Resolve-Path $Root).Path.TrimEnd('\', '/')
     $specsDir = Join-Path $Root 'openspec/specs'
     $changesDir = Join-Path $Root 'openspec/changes'
     if ((Test-Path $specsDir) -or (Test-Path $changesDir)) {
@@ -1433,7 +1489,7 @@ function Invoke-ScanIntegrations {
         foreach ($d in @($specsDir, $changesDir)) {
             if (Test-Path $d) {
                 Get-ChildItem -Recurse -File -Path $d -Filter *.md -ErrorAction SilentlyContinue | ForEach-Object {
-                    $files += $_.FullName.Substring($rootFull.Length + 1).Replace('\', '/')
+                    $files += Get-InstallerRelativePath -BasePath $Root -ChildPath $_.FullName
                 }
             }
         }
@@ -1465,11 +1521,10 @@ function Invoke-OpenSpecScaffold {
         return
     }
 
-    $sourceFull = (Resolve-Path $sourceOpenSpec).Path.TrimEnd('\', '/')
     $copied = 0
     $skipped = 0
     Get-ChildItem -Recurse -File -Path $sourceOpenSpec -ErrorAction SilentlyContinue | ForEach-Object {
-        $rel = $_.FullName.Substring($sourceFull.Length + 1).Replace('\', '/')
+        $rel = Get-InstallerRelativePath -BasePath $sourceOpenSpec -ChildPath $_.FullName
         $targetRel = "openspec/$rel"
         $targetAbs = Join-Path $Root $targetRel
         if (Test-Path $targetAbs) {
@@ -1618,11 +1673,10 @@ function Invoke-OpenSpecArtifacts {
             $skippedTools += $tool
             continue
         }
-        $toolBundleFull = (Resolve-Path $toolBundle).Path.TrimEnd('\', '/')
         $toolCopied = 0
         $toolKept = 0
         Get-ChildItem -Recurse -File -Path $toolBundle -ErrorAction SilentlyContinue | ForEach-Object {
-            $rel = $_.FullName.Substring($toolBundleFull.Length + 1).Replace('\', '/')
+            $rel = Get-InstallerRelativePath -BasePath $toolBundle -ChildPath $_.FullName
             $destRel = Get-OpenSpecBundleDestRel -Tool $tool -Rel $rel
             if ($Manifest.files.Contains($destRel)) {
                 $existing = $Manifest.files[$destRel]
@@ -1729,6 +1783,13 @@ function Get-1cSynonymRu {
 function Get-1cProjectInfo {
     param([string]$Root)
 
+    # Root owns settings and generated documents; only the explicitly selected
+    # EXPORT_PATH owns the source metadata. Never guess among nested dumps.
+    $exportPath = Get-EnvFileValue -FilePath (Join-Path $Root $script:DevEnvFileName) -Key 'EXPORT_PATH'
+    $sourceRoot = if ([string]::IsNullOrWhiteSpace($exportPath)) { $Root }
+        elseif ([IO.Path]::IsPathRooted($exportPath)) { $exportPath }
+        else { Join-Path $Root $exportPath }
+
     $info = [ordered]@{
         Detected        = $false
         ConfigPath      = ''
@@ -1749,8 +1810,8 @@ function Get-1cProjectInfo {
         Counts          = [ordered]@{}
     }
 
-    $configXml = Join-Path $Root 'Configuration.xml'
-    $extXml = Join-Path $Root 'ConfigurationExtension.xml'
+    $configXml = Join-Path $sourceRoot 'Configuration.xml'
+    $extXml = Join-Path $sourceRoot 'ConfigurationExtension.xml'
     $xmlPath = $null
     if (Test-Path $configXml) { $xmlPath = $configXml }
     elseif (Test-Path $extXml) { $xmlPath = $extXml; $info.IsExtension = $true }
@@ -1807,12 +1868,12 @@ function Get-1cProjectInfo {
     )
     $bspFile = $null
     foreach ($c in $bspCandidates) {
-        $p = Join-Path $Root $c
+        $p = Join-Path $sourceRoot $c
         if (Test-Path $p) { $bspFile = $p; break }
     }
     if (-not $bspFile) {
         foreach ($n in @('СтандартныеПодсистемы.xml', 'StandardSubsystems.xml')) {
-            if (Test-Path (Join-Path $Root "Subsystems\$n")) { $info.BspDetected = $true; break }
+            if (Test-Path (Join-Path $sourceRoot "Subsystems\$n")) { $info.BspDetected = $true; break }
         }
     }
     if ($bspFile) {
@@ -1828,7 +1889,7 @@ function Get-1cProjectInfo {
         catch {}
     }
 
-    $subsDir = Join-Path $Root 'Subsystems'
+    $subsDir = Join-Path $sourceRoot 'Subsystems'
     if (Test-Path $subsDir) {
         $info.Subsystems = @(
             Get-ChildItem -File $subsDir -Filter *.xml -ErrorAction SilentlyContinue |
@@ -1853,7 +1914,7 @@ function Get-1cProjectInfo {
         'Tasks'                       = 'Задачи'
     }
     foreach ($k in $kinds.Keys) {
-        $d = Join-Path $Root $k
+        $d = Join-Path $sourceRoot $k
         if (Test-Path $d) {
             $count = @(Get-ChildItem -File $d -Filter *.xml -ErrorAction SilentlyContinue).Count
             if ($count -gt 0) { $info.Counts[$kinds[$k]] = $count }
@@ -2098,7 +2159,8 @@ function Invoke-PlaceArtifactFile {
         [string]$Template,
         [System.Collections.IDictionary]$Manifest,
         [string]$ContentSource,
-        [string]$OwnerTool
+        [string]$OwnerTool,
+        [System.Collections.IDictionary]$Layouts
     )
     # Respect user modifications: if manifest marks this path as userModified,
     # keep the user's edits and leave the manifest entry unchanged — unless the
@@ -2118,6 +2180,7 @@ function Invoke-PlaceArtifactFile {
         $absTarget = Join-Path $Root $TargetRel
     }
     if ($Mode -eq 'rebuild-toml') {
+        $SourceBody = Convert-AgentsMdPaths -Text $SourceBody -Layouts $Layouts
         $rendered = Invoke-CodexAgentTemplate -Template $Template -Fm $SourceFm -Body $SourceBody
         Write-TextFile -Path $absTarget -Content $rendered
     }
@@ -2126,7 +2189,11 @@ function Invoke-PlaceArtifactFile {
         if ($parentDir -and -not (Test-Path $parentDir)) {
             New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
         }
-        Copy-Item -Path $SourcePath -Destination $absTarget -Force
+        if ([IO.Path]::GetExtension($SourcePath) -ieq '.md') {
+            $rendered = Convert-AgentsMdPaths -Text (Read-TextFile $SourcePath) -Layouts $Layouts
+            Write-TextFile -Path $absTarget -Content $rendered
+        }
+        else { Copy-Item -LiteralPath $SourcePath -Destination $absTarget -Force }
     }
     else {
         $newFm = Invoke-FrontmatterOps -Source $SourceFm -Ops $FrontmatterOps
@@ -2137,6 +2204,7 @@ function Invoke-PlaceArtifactFile {
         else {
             $full = $SourceBody
         }
+        $full = Convert-AgentsMdPaths -Text $full -Layouts $Layouts
         Write-TextFile -Path $absTarget -Content $full
     }
     $hash = Get-FileSha256 $absTarget
@@ -2165,10 +2233,11 @@ function Invoke-PlaceSkill {
         [string]$TargetDir,
         [System.Collections.IDictionary]$Manifest,
         [string]$ContentSource,
-        [string]$OwnerTool
+        [string]$OwnerTool,
+        [System.Collections.IDictionary]$Layouts
     )
     $absTarget = Join-Path $Root $TargetDir
-    $srcFull = (Resolve-Path $SourceDir).Path.TrimEnd('\', '/')
+    $srcFull = Resolve-InstallerExistingPath $SourceDir
     $targetRelBase = ($TargetDir -replace '[\\/]+$', '').Replace('\', '/')
     if (-not (Test-Path $absTarget)) {
         New-Item -ItemType Directory -Force -Path $absTarget | Out-Null
@@ -2177,7 +2246,7 @@ function Invoke-PlaceSkill {
     # 1) Copy / refresh every source file unless the user owns it.
     $sourceRels = @{}
     foreach ($sf in Get-ChildItem -Recurse -File -Path $srcFull) {
-        $relWithin = $sf.FullName.Substring($srcFull.Length + 1).Replace('\', '/')
+        $relWithin = Get-InstallerRelativePath -BasePath $srcFull -ChildPath $sf.FullName
         $sourceRels[$relWithin] = $true
         $key = "$targetRelBase/$relWithin"
         if ($Manifest.files.Contains($key)) {
@@ -2192,7 +2261,11 @@ function Invoke-PlaceSkill {
         if ($destDir -and -not (Test-Path $destDir)) {
             New-Item -ItemType Directory -Force -Path $destDir | Out-Null
         }
-        Copy-Item -Path $sf.FullName -Destination $destFull -Force
+        if ($sf.Extension -ieq '.md') {
+            $rendered = Convert-AgentsMdPaths -Text (Read-TextFile $sf.FullName) -Layouts $Layouts
+            Write-TextFile -Path $destFull -Content $rendered
+        }
+        else { Copy-Item -LiteralPath $sf.FullName -Destination $destFull -Force }
         $previousEntry = if ($Manifest.files.Contains($key)) { $Manifest.files[$key] } else { $null }
         $entry = [ordered]@{
             source        = $ContentSource
@@ -2204,9 +2277,9 @@ function Invoke-PlaceSkill {
     }
 
     # 2) Prune files that are no longer shipped, keeping user-modified ones.
-    $absTargetFull = (Resolve-Path $absTarget).Path.TrimEnd('\', '/')
+    $absTargetFull = Resolve-InstallerExistingPath $absTarget
     foreach ($ef in Get-ChildItem -Recurse -File -Path $absTargetFull) {
-        $relWithin = $ef.FullName.Substring($absTargetFull.Length + 1).Replace('\', '/')
+        $relWithin = Get-InstallerRelativePath -BasePath $absTargetFull -ChildPath $ef.FullName
         if ($sourceRels.Contains($relWithin)) { continue }
         $key = "$targetRelBase/$relWithin"
         if ($Manifest.files.Contains($key)) {
@@ -2473,6 +2546,17 @@ function Invoke-PlacePhase {
         [hashtable]$Adapters,
         [System.Collections.IDictionary]$Manifest
     )
+    # `add` places only the new client, but its links still use the canonical
+    # layout of the complete active tool set, including previously installed tools.
+    $canonicalTools = @(@($ActiveTools) + @($Manifest.tools) | Select-Object -Unique)
+    $canonicalAdapters = @{}
+    foreach ($key in $Adapters.Keys) { $canonicalAdapters[$key] = $Adapters[$key] }
+    $missingAdapters = @($canonicalTools | Where-Object { -not $canonicalAdapters.ContainsKey($_) })
+    if ($missingAdapters.Count -gt 0) {
+        $loadedAdapters = Load-Adapters -SourceRoot $SourceRoot -Tools $missingAdapters
+        foreach ($key in $loadedAdapters.Keys) { $canonicalAdapters[$key] = $loadedAdapters[$key] }
+    }
+    $layouts = Resolve-CanonicalArtifactLayouts -ActiveTools $canonicalTools -Adapters $canonicalAdapters
     foreach ($tool in $ActiveTools) {
         $adapter = $Adapters[$tool]
         Write-Info "  [$tool] placing files"
@@ -2489,7 +2573,7 @@ function Invoke-PlacePhase {
                 Invoke-PlaceArtifactFile -Root $Root -SourcePath $f.FullName `
                     -TargetRel $target -SourceFm $parts.Frontmatter -SourceBody $parts.Body `
                     -FrontmatterOps $fmOps -Mode $mode `
-                    -Manifest $Manifest -ContentSource ("content/rules/" + $f.Name) -OwnerTool $tool
+                    -Manifest $Manifest -ContentSource ("content/rules/" + $f.Name) -OwnerTool $tool -Layouts $layouts
             }
         }
 
@@ -2507,7 +2591,7 @@ function Invoke-PlacePhase {
                 Invoke-PlaceArtifactFile -Root $Root -SourcePath $f.FullName `
                     -TargetRel $target -SourceFm $agentFm -SourceBody $parts.Body `
                     -FrontmatterOps $fmOps -Mode $mode -Template $template `
-                    -Manifest $Manifest -ContentSource ("content/agents/" + $f.Name) -OwnerTool $tool
+                    -Manifest $Manifest -ContentSource ("content/agents/" + $f.Name) -OwnerTool $tool -Layouts $layouts
             }
         }
 
@@ -2525,14 +2609,14 @@ function Invoke-PlacePhase {
                     Invoke-PlaceArtifactFile -Root $Root -SourcePath $f.FullName `
                         -TargetRel $targetRaw -SourceFm $parts.Frontmatter -SourceBody $parts.Body `
                         -FrontmatterOps $fmOps -Mode $mode `
-                        -Manifest $Manifest -ContentSource ("content/commands/" + $f.Name) -OwnerTool $tool
+                        -Manifest $Manifest -ContentSource ("content/commands/" + $f.Name) -OwnerTool $tool -Layouts $layouts
                     Write-Warn "  command written to user scope: $targetRaw (shared across projects)"
                 }
                 else {
                     Invoke-PlaceArtifactFile -Root $Root -SourcePath $f.FullName `
                         -TargetRel $targetRaw -SourceFm $parts.Frontmatter -SourceBody $parts.Body `
                         -FrontmatterOps $fmOps -Mode $mode `
-                        -Manifest $Manifest -ContentSource ("content/commands/" + $f.Name) -OwnerTool $tool
+                        -Manifest $Manifest -ContentSource ("content/commands/" + $f.Name) -OwnerTool $tool -Layouts $layouts
                 }
             }
         }
@@ -2546,7 +2630,7 @@ function Invoke-PlacePhase {
                 $name = $sd.Name
                 $targetDir = Resolve-CopyToPath $dirTpl $name
                 Invoke-PlaceSkill -Root $Root -SourceDir $sd.FullName -TargetDir $targetDir `
-                    -Manifest $Manifest -ContentSource ("content/skills/" + $name) -OwnerTool $tool
+                    -Manifest $Manifest -ContentSource ("content/skills/" + $name) -OwnerTool $tool -Layouts $layouts
             }
         }
 
@@ -2633,9 +2717,8 @@ function Resolve-CanonicalRulesLayout {
 # hashtable `{ rules = @{Dir=..; Ext=..}; agents = ...; commands = ...; skills = ... }`.
 # Sections without a defined canonical layout are simply omitted.
 #
-# Used by Update-AgentsMd to rewrite `content/<section>/...` paths in the
-# source AGENTS.md to the per-section installed paths so the agent reading
-# AGENTS.md from the project root can resolve every link to an existing file.
+# Used by the place phase and Update-AgentsMd so every installed Markdown
+# document and agent body can resolve source references from the project root.
 function Resolve-CanonicalArtifactLayouts {
     param(
         [string[]]$ActiveTools,
@@ -2654,7 +2737,7 @@ function Resolve-CanonicalArtifactLayouts {
             if (-not $dir) { continue }
             $ext = ''
             if ($copyTo -match '\{name\}\.([A-Za-z0-9]+)$') { $ext = $Matches[1] }
-            $layouts[$section] = [ordered]@{ Dir = $dir; Ext = $ext; Tool = $tool }
+            $layouts[$section] = [ordered]@{ Dir = $dir; Ext = $ext; Tool = $tool; Template = $copyTo.Replace('\', '/') }
             break
         }
     }
@@ -2663,9 +2746,8 @@ function Resolve-CanonicalArtifactLayouts {
 
 # Rewrite source-repo paths (`content/<section>/<name>.md`,
 # `content/skills/<rest>`) to the per-section canonical installed paths. The
-# source AGENTS.md is maintained with readable repo-relative paths; the
-# installer substitutes them so that the file copied into the project root
-# points at files that actually exist on disk for the active tool(s).
+# source is maintained with readable repo-relative paths; the installer
+# substitutes them in installed Markdown and generated agent bodies.
 #
 # Substitutions performed (when the corresponding section layout is known):
 #   content/rules/<name>.md     -> <rulesDir>/<name>.<rulesExt>
@@ -2700,12 +2782,14 @@ function Convert-AgentsMdPaths {
         # Closure capture for callback
         $captureDir = $dir
         $captureExt = $ext
+        $captureTemplate = [string]$Layouts[$section].Template
         # Pass 1: file references — both directory and extension are rewritten
         # (the extension swap matters for Cursor's `.mdc` rules and Codex's
         # `.toml` agents).
         $result = [regex]::Replace($result, $entry.Pattern, {
             param($m)
             $name = $m.Groups[1].Value
+            if ($captureTemplate) { return $captureTemplate.Replace('{name}', $name) }
             return "$captureDir/$name.$captureExt"
         })
         # Pass 2: bare directory references like `content/rules/` (used in the
@@ -2717,7 +2801,7 @@ function Convert-AgentsMdPaths {
     if ($Layouts.Contains('skills')) {
         $skillsDir = [string]$Layouts['skills'].Dir
         if ($skillsDir) {
-            # Skills are copied verbatim — anything after `content/skills/`
+            # Skills keep their directory layout — anything after `content/skills/`
             # (SKILL.md, docs/<file>.md, tools/<…>) is preserved by the
             # place phase, so a single prefix swap covers both file
             # references (`content/skills/<name>/SKILL.md`) and bare
@@ -4122,6 +4206,7 @@ function Invoke-InitialSourceDump {
             throw 'Выгрузка не подтверждена. Проверьте сообщения скрипта и повторите /loadfrom1cbase full через агента.'
         }
         Write-Info 'Исходники выгружены. Правила установлены; файлы выгрузки принадлежат проекту.'
+        return $true
     }
     catch {
         Write-Warn $_.Exception.Message
@@ -4669,9 +4754,6 @@ function Invoke-Init {
     Write-Section 'Phase 6c: OpenSpec artefacts (slash commands + skills)'
     Invoke-OpenSpecArtifacts -Root $Root -SourceRoot $sourceRoot -ActiveTools $activeTools -Manifest $manifest
 
-    Write-Section 'Phase 6d: OpenSpec project.md (1C autodetect)'
-    Invoke-OpenSpecProjectMd -Root $Root -Manifest $manifest
-
     # .dev.env must be placed BEFORE the MCP phase because some MCP server
     # URLs in `content/mcp-servers.json` reference {INFOBASE_PUBLISH_URL} —
     # the installer substitutes that placeholder from the freshly-written
@@ -4681,6 +4763,9 @@ function Invoke-Init {
     Invoke-LegacyInfobaseSettingsMigration -Root $Root -Manifest $manifest
     Ensure-EdtUsageSetting -Root $Root -Manifest $manifest
     Ensure-SupportSettings -Root $Root -Manifest $manifest
+
+    Write-Section 'Phase 7b: OpenSpec project.md (1C autodetect)'
+    Invoke-OpenSpecProjectMd -Root $Root -Manifest $manifest
 
     Write-Section 'Phase 8: MCP'
     $extMcp = Resolve-ExternalMcpMode -ProjectRoot $Root
@@ -4743,7 +4828,13 @@ function Invoke-Init {
     Write-InstallToolsAnnouncement
 
     if (-not $existing -and $verify.Ok) {
-        Invoke-InitialSourceDump -Root $Root -SourceRoot $sourceRoot -Manifest $manifest
+        $sourceDumped = Invoke-InitialSourceDump -Root $Root -SourceRoot $sourceRoot -Manifest $manifest
+        # A successful optional dump may have populated EXPORT_PATH only now.
+        # Refresh the generated context after that step, keeping user edits.
+        if ($sourceDumped) {
+            Invoke-OpenSpecProjectMd -Root $Root -Manifest $manifest
+            Write-Manifest -Root $Root -Manifest $manifest
+        }
     }
 }
 
@@ -5244,9 +5335,6 @@ function Invoke-Update {
     Write-Section 'OpenSpec artefacts (update)'
     Invoke-OpenSpecArtifacts -Root $Root -SourceRoot $sourceRoot -ActiveTools $activeTools -Manifest $manifest
 
-    Write-Section 'OpenSpec project.md (update / 1C autodetect)'
-    Invoke-OpenSpecProjectMd -Root $Root -Manifest $manifest
-
     # .dev.env runs before MCP so that {INFOBASE_PUBLISH_URL} placeholders in
     # `content/mcp-servers.json` resolve against the actual project value
     # when MCP configs are re-rendered.
@@ -5255,6 +5343,9 @@ function Invoke-Update {
     Invoke-LegacyInfobaseSettingsMigration -Root $Root -Manifest $manifest
     Ensure-EdtUsageSetting -Root $Root -Manifest $manifest
     Ensure-SupportSettings -Root $Root -Manifest $manifest
+
+    Write-Section 'OpenSpec project.md (update / 1C autodetect)'
+    Invoke-OpenSpecProjectMd -Root $Root -Manifest $manifest
 
     Write-Section 'MCP (update)'
     $extMcp = Resolve-ExternalMcpMode -ProjectRoot $Root
