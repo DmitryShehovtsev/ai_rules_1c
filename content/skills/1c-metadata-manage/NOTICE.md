@@ -14,7 +14,7 @@ and travels with every copy of this skill, including installed ones
 Vendored under `tools/`, with local modifications documented in each file's
 header and in `docs/`:
 
-**Python entry points — exactly five, all vendored from the pinned commit above.**
+**Five metadata Python entry points vendored from the pinned commit above.**
 Each was taken from that immutable commit, not from a moving `HEAD`, and each
 carries its downstream deltas in its own file header:
 
@@ -62,8 +62,20 @@ carries its downstream deltas in its own file header:
 - `tools/_common/dev_env.py` — not upstream code: the Python peer of the local
   `DevEnv.ps1`, so both runtimes read project parameters from `.dev.env`.
 
-Everything else under `tools/` is PowerShell-only; **no other Python port is
-shipped.** The pin above is not to be advanced without re-running
+**Four local web ports**, derived from the existing vendored PowerShell
+publication layout rather than copied from upstream Python:
+
+- `tools/1c-web-ops/scripts/web-publish.py` — publication creation/update.
+- `tools/1c-web-ops/scripts/web-info.py` — publication and process status.
+- `tools/1c-web-ops/scripts/web-stop.py` — scoped managed-process shutdown.
+- `tools/1c-web-ops/scripts/web-unpublish.py` — preview and guarded removal.
+- `tools/1c-web-ops/scripts/web_common.py` — shared local implementation:
+  standalone Apache, loopback binding, no downloads, path/ownership checks and
+  rollback on failed publication updates. Runtime differences are documented
+  in `docs/web-manage.md`; offline checks are in
+  `tools/tests/web-python-regression.py` in the ruleset source.
+
+Other tool commands remain PowerShell-only. The upstream pin above is not to be advanced without re-running
 `tools/tests/python-ports-regression.py` and re-recording the deltas here.
 
 - the PowerShell tool scripts under `tools/` synced from the same upstream

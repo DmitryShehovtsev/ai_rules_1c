@@ -170,7 +170,7 @@ Missing, empty or invalid values are `unknown`, not proof that EDT is absent. On
 | `TOOL_DATA` | `1c-data-mcp`: live-IB checks |
 | `TOOL_EDT` | EDT-MCP; workflow still requires `USE_EDT=true` |
 | `TOOL_AGENT_BROWSER` | agent-browser, MCP and CLI |
-| `TOOL_BROWSER` | Active client's built-in browser tools |
+| `TOOL_BROWSER` | Active client's built-in browser tools and saved UI test runners |
 | `TOOL_WINDOWS_MCP` | Windows-MCP desktop automation |
 | `TOOL_UI_TEST` | Optional `MCP_Test` / `1C Visual UI Test` |
 | `TOOL_CONVERSION` | Optional `MCP_ConversionData20` |

@@ -2234,7 +2234,7 @@ def _(work):
         assert_equal(diagnostics(py), diagnostics(ps), f"{marker}: diagnostics differ")
 
 
-# ---------------------------------------------------------------- the five shipped ports
+# ---------------------------------------------------------------- shipped command ports
 
 PORTED_COMMANDS = OrderedDict((
     ("form-compile", "1c-form-compile"),
@@ -2242,21 +2242,26 @@ PORTED_COMMANDS = OrderedDict((
     ("remove-form", "1c-form-scaffold"),
     ("meta-edit", "1c-meta-edit"),
     ("meta-validate", "1c-meta-validate"),
+    ("web-publish", "1c-web-ops"),
+    ("web-info", "1c-web-ops"),
+    ("web-stop", "1c-web-ops"),
+    ("web-unpublish", "1c-web-ops"),
 ))
 
+WEB_COMMON_PY = os.path.join(TOOLS_DIR, "1c-web-ops", "scripts", "web_common.py")
 
-@case("ports: exactly the five documented commands have a Python peer, and each one runs")
+@case("ports: exactly the documented commands have a Python peer, and each one runs")
 def _(work):
     """The scope claim is itself a gate. Every command documented as ported must
     have a runnable entry point, and nothing else under ``tools/`` may have one -
-    so the day a sixth port lands, the docs are forced to grow with it."""
+    so new ports must grow the documented set too. Shared helpers are not commands."""
     found = {}
     for entry in sorted(os.listdir(TOOLS_DIR)):
         scripts = os.path.join(TOOLS_DIR, entry, "scripts")
         if not os.path.isdir(scripts):
             continue
         for name in sorted(os.listdir(scripts)):
-            if name.endswith(".py"):
+            if name.endswith(".py") and os.path.join(scripts, name) != WEB_COMMON_PY:
                 found[name[:-3]] = entry
     assert_equal(sorted(PORTED_COMMANDS), sorted(found),
                  "the set of Python ports on disk is not the documented set")
@@ -2274,6 +2279,7 @@ def _(work):
     targets = [os.path.join(TOOLS_DIR, tool, "scripts", stem + ".py")
                for stem, tool in PORTED_COMMANDS.items()]
     targets.append(DEV_ENV_PY)
+    targets.append(WEB_COMMON_PY)
     targets.append(os.path.abspath(__file__))
     for path in targets:
         try:
@@ -2283,7 +2289,7 @@ def _(work):
             fail(f"{os.path.relpath(path, REPO_ROOT)} does not compile: {exc}")
 
 
-@case("licensing: the notice lists every vendored Python port with the upstream pin")
+@case("licensing: the notice lists every Python port and retains the upstream pin")
 def _(work):
     path = os.path.join(REPO_ROOT, *UPSTREAM_NOTICE_REL.split("/"))
     with open(path, "rb") as handle:
@@ -2294,7 +2300,7 @@ def _(work):
     assert_true("dev_env.py" in text, "the notice does not mention the shared helper dev_env.py")
 
 
-@case("docs: the skill documents the Python runtime for those five commands only")
+@case("docs: the skill documents the Python runtime for the shipped commands only")
 def _(work):
     path = os.path.join(REPO_ROOT, "content", "skills", "1c-metadata-manage", "SKILL.md")
     with open(path, "rb") as handle:
@@ -2319,7 +2325,7 @@ def _(work):
                         f"SKILL.md promises {promised}, which does not exist under {entry}")
 
 
-@case("packaging: install ships all five Python entry points, tracks them, and they run",
+@case("packaging: install ships Python ports and optional workflows, tracks them, and they run",
       needs_powershell=True)
 def _(work):
     host = find_powershell_host()
@@ -2342,6 +2348,7 @@ def _(work):
     relatives = [f".claude/skills/1c-metadata-manage/tools/{tool}/scripts/{stem}.py"
                  for stem, tool in PORTED_COMMANDS.items()]
     relatives.append(".claude/skills/1c-metadata-manage/tools/_common/dev_env.py")
+    relatives.append(".claude/skills/1c-metadata-manage/tools/1c-web-ops/scripts/web_common.py")
     for rel in relatives:
         target = os.path.join(project, *rel.split("/"))
         assert_true(os.path.isfile(target), f"the installer did not ship {rel}")
@@ -2356,6 +2363,24 @@ def _(work):
                      f"the installed copy of {rel} differs from the source")
         assert_true(rel in manifest.get("files", {}), f"the manifest does not track {rel}")
         installed[os.path.basename(rel)[:-3]] = target
+
+    for rel in (
+        ".claude/skills/1c-ui-regression/SKILL.md",
+        ".claude/skills/1c-business-tests/SKILL.md",
+        ".claude/skills/handoff/SKILL.md",
+        ".claude/commands/resume.md",
+    ):
+        target = os.path.join(project, *rel.split("/"))
+        assert_true(os.path.isfile(target), f"the installer did not ship {rel}")
+        assert_true(rel in manifest.get("files", {}), f"the manifest does not track {rel}")
+        with open(target, encoding="utf-8-sig") as handle:
+            frontmatter = handle.read().split("---", 2)[1]
+        assert_true("disable-model-invocation: true" not in frontmatter,
+                    f"optional workflow cannot be selected by the model: {rel}")
+
+    for stem in ("web-publish", "web-info", "web-stop", "web-unpublish"):
+        run = run_python_tool(installed[stem], ["--help"], project)
+        assert_equal(0, run["exit_code"], f"installed {stem} cannot load its helpers: {run['stderr']}")
 
     # The installed copies are the ones users run: exercise the two contracts this
     # change is about from the installed tree, not from the repository.

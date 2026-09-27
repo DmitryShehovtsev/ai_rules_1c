@@ -88,6 +88,10 @@ jobs:
         shell: powershell
         run: python -B "tools/tests/python-ports-regression.py"
 
+      - name: Python web operation regressions (offline)
+        shell: powershell
+        run: python -B "tools/tests/web-python-regression.py"
+
   python-ports:
     runs-on: ubuntu-latest
     steps:
@@ -105,3 +109,6 @@ jobs:
       # those. -B keeps __pycache__ out of the tree.
       - name: Python port safety contract
         run: python -B "tools/tests/python-ports-regression.py" --python-only
+
+      - name: Python web operation regressions (offline)
+        run: python -B "tools/tests/web-python-regression.py"

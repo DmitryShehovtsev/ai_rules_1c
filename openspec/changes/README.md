@@ -64,10 +64,12 @@ and final review. Each delta requirement carries its verification method and
 expected outcome inside the requirement block (see the
 [spec template](../specs/README.md)). Specify required test data/environment.
 
-Planning tests and acceptance/regression scenarios is supported. The ruleset
-does not supply unit, regression or acceptance test-suite authoring or runners.
-The agent confirms outcomes within the cycle through supported infobase or UI
-checks, with the applicable authorization and `UI_TESTING` policy.
+Planning tests and acceptance/regression scenarios is supported. The model may
+choose `content/skills/1c-business-tests/SKILL.md` or
+`content/skills/1c-ui-regression/SKILL.md` when reusable executable tests add
+value. Suites are optional, use a verified project framework/runner and retain
+the applicable authorization and `UI_TESTING` policy. The agent still confirms
+outcomes within the cycle through supported infobase or UI checks.
 
 Map every criterion to a verification task, for example:
 

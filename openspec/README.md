@@ -115,8 +115,11 @@ as user-modified, in which case `1c-rules` preserves your edits).
    is moved to `changes/archive/<date>-<change-name>/`.
 
 Browser testing retains its `UI_TESTING` policy; disabling it does not cancel
-other verification. Test planning is supported; the ruleset supplies no unit,
-regression or acceptance test-suite framework or runner. The agent must compare
+other verification. The model may select the optional
+[`1c-business-tests`](../content/skills/1c-business-tests/SKILL.md) or
+[`1c-ui-regression`](../content/skills/1c-ui-regression/SKILL.md) skill to author
+and run reusable tests when useful. Frameworks and runners must be verified in
+the target project; they are not bundled or required for every change. The agent must compare
 expected and actual outcomes using the supported, authorized checks within apply.
 Separate reviewer agents retain their launch conditions; the
 parent performs full-cycle review by default. The completion contract lives

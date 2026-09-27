@@ -10,9 +10,15 @@ category: tooling
 
 Whether UI tests run at all is still gated by `UI_TESTING` + `INFOBASE_PUBLISH_URL` — canon: `dev-standards-env.md → "UI_TESTING — web UI-testing mode"`. This file answers **which tool** to drive once a run is allowed, and the **mandatory preflight** before the first browser action.
 
+## Saved regression suites
+
+`content/skills/1c-ui-regression/SKILL.md` provides optional reusable test authoring. The model may choose it when repeated coverage is useful. A saved suite runs through its verified project runner (for example Playwright Test), under `UI_TESTING`, the authorized dev/test target and `TOOL_BROWSER`. It is distinct from interactive inspection; it does not need agent-browser installation solely to execute saved assertions. `TOOL_BROWSER=off` disables this lane; `required` needs a working runner for the selected suite. Do not substitute another provider to bypass a disabled or required capability.
+
+Any interactive exploration or debugging needed to author/fix the suite still follows the preflight and driver order below. Both lanes retain the interaction rules from `web-client-driving.md`; saved tests use observed stable locators rather than ephemeral snapshot refs.
+
 ## Preflight before web UI tests (hard gate)
 
-Runs before an authorized web UI test. First apply `TOOL_AGENT_BROWSER`, `TOOL_BROWSER`, `TOOL_WINDOWS_MCP` (`content/rules/mcp-policy.md → Tool availability`). In `auto`, use the preflight below. With `TOOL_AGENT_BROWSER=off`, skip its probes/install question and select an eligible built-in browser. With `required`, a missing agent-browser blocks execution. If no permitted web driver works, report the test unrun; do not substitute desktop automation for a web scenario. A selected built-in driver's `required` failure also blocks the test.
+Runs before an authorized interactive web UI test (saved suites use the preceding section). First apply `TOOL_AGENT_BROWSER`, `TOOL_BROWSER`, `TOOL_WINDOWS_MCP` (`content/rules/mcp-policy.md → Tool availability`). In `auto`, use the preflight below. With `TOOL_AGENT_BROWSER=off`, skip its probes/install question and select an eligible built-in browser. With `required`, a missing agent-browser blocks execution. If no permitted web driver works, report the test unrun; do not substitute desktop automation for a web scenario. A selected built-in driver's `required` failure also blocks the test.
 
 1. **Detect `agent-browser`.** Available if **either**:
    - CLI on `PATH` (`agent-browser --version` succeeds), **or**
