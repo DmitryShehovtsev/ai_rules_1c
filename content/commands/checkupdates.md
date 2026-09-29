@@ -9,6 +9,8 @@ The command only **looks**: it compares what is installed with what is published
 
 The argument narrows the check: `mcp` — images only, `rules` — rules only, empty — both parts.
 
+For MCP images load `content/rules/mcp-deployment.md` and inspect the recorded deployment host/context, including an optional shared Debian/Ubuntu Engine. Apply that target to the Docker examples below; use host-native paths and shell syntax. Without host access, report image versions/digests as unverified and continue the independent rules check. Never infer remote versions from local containers or require Docker Desktop on a client.
+
 Proactive run — **about once every 30 days** (plus one-off triggers). The contract and how to count the period — `content/rules/support-feedback.md §4 → "Проактивный /checkupdates"`.
 
 ## Part A. The `1c-rules` ruleset

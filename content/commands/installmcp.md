@@ -29,6 +29,8 @@ MCP_Distr/
 
 Use `/setupmcp` (`content/commands/setupmcp.md`) to connect already installed servers and available memory to a new repository by their actual addresses. Use `/checkmcp` to inspect those connections. Use `/updatemcp` to update an already installed set (and to re-fetch a newer distribution + new license keys).
 
+Before selecting a target or running Docker, load `content/rules/mcp-deployment.md`. Local installation is the ordinary path; an optional shared Debian/Ubuntu Docker Engine host is equally valid. Resolve the target in the initial installation question, before downloading/unpacking; distinguish a local download staging directory from the installation root on the Docker host. Adapt shell/path syntax to the selected OS; the PowerShell download flow can run on a Windows client without making that client the Docker host. On a host without PowerShell use the documented browser/manual download fallback, not a Docker Desktop requirement. Existing endpoints route to `/setupmcp` without a download.
+
 ## Release channel — stable or beta (`IMAGE_TAG`)
 
 **This section is the canon for the release channel.** `/updatemcp`, `/checkmcp` and `/installtools` point here instead of repeating it.
@@ -106,9 +108,9 @@ If the requested beta tag is missing for one server, do **not** silently install
 
 ### 1. Choose the target directory and download the distribution
 
-Ask the user **one** thing first:
+In one question combine the deployment choice from `content/rules/mcp-deployment.md` with the installation directory; omit already confirmed fields. Use an OS-appropriate path example (`C:\Work\MCP_Distr` on Windows, `/srv/mcp/MCP_Distr` on Linux), never a Windows default before the host is known:
 
-> Куда распаковать дистрибутив MCP серверов? По умолчанию — `C:\Work\MCP_Distr`. Если папка уже существует и содержит `INSTALL.md` — будет переиспользована (обновлять её предназначен `/updatemcp`, не `/installmcp`). Введите путь или нажмите Enter.
+> Установить MCP на этом компьютере (обычный вариант), на общем сервере Debian/Ubuntu с Docker или подключить уже работающие серверы? Для общего сервера укажите DNS/IP вместо 127.0.0.1 и доступ для установки. В какой каталог выбранного хоста распаковать дистрибутив? Свободные порты я проверю и подберу сам.
 
 If the target directory already exists and already contains `INSTALL.md`, **stop** and tell the user:
 
@@ -303,16 +305,14 @@ Either way the resolved tag is written to `IMAGE_TAG` in Step 5 — not pasted i
 
 ### 4. Verify preconditions
 
-1. **Docker Desktop.** Run `docker info`. If Docker is missing or the daemon is not running:
-   - Check WSL2: `wsl --list --verbose`. If absent — `wsl --install` (reboot required).
-   - Install Docker Desktop: `winget install Docker.DockerDesktop`.
-   - Ask the user to start Docker Desktop and wait for it to be ready.
-   - Re-run `docker info`.
+1. **Selected Docker host.** Follow `content/rules/mcp-deployment.md`: inspect the chosen context/SSH target, daemon OS, `docker info` and `docker compose version`. Reuse a working Engine. Debian/Ubuntu uses native Docker Engine + Compose; Docker Desktop/WSL setup applies only to a selected local Windows deployment that actually needs it. An unreachable remote daemon is not a reason to install Docker locally. Verify mount paths on the daemon host and have the agent select free host ports there before launch.
 2. **Detailed mode only — embedding model choice.** The shipped default is RouterAI with `EMBEDDING_MODEL=qwen/qwen3-embedding-8b`; keep it unless the user deliberately picks something else. Briefly explain the alternatives (LM Studio + Qwen3 Embedding with NVIDIA GPU / OpenRouter or OpenAI API / CPU mode) and reference `https://docs.onerpa.ru/mcp-servery-1c/embedding-modeli`. For users in Russia, note that `huggingface.co` may be blocked — recommend RouterAI or LM Studio.
 
 ### 5. Fill in `config.env`
 
 Open `<TARGET>\config.env`. **Do not** invent values. For every parameter that is **empty**, prepare a single consolidated question to the user (do not ask one parameter per message). Use these prompts (skip a row if the parameter is already filled in the file):
+
+Paths below belong to the selected Docker host; Windows paths are illustrative only. Obtain Linux paths for a Linux deployment and verify required files there. Persist host, bind address and selected port mappings using the deployment rule; add no unsupported keys to `config.env`.
 
 | Parameter | Ask when | Prompt to the user |
 |---|---|---|
@@ -334,6 +334,8 @@ After collecting answers, **save** them back to `<TARGET>\config.env` so that `/
 
 Servers are listed in order of importance per `INSTALL.md`. For each server in the table below:
 
+The port column contains preferred **host** ports, not mandatory assignments. Allocate available host ports automatically per `content/rules/mcp-deployment.md`, retaining the container ports from each bundled instruction. Apply this to Compose publications too; preserve the existing installer's ownership of registry-assigned ports.
+
 | # | Server | Per-server file | Container | Port | Required inputs |
 |---|--------|-----------------|-----------|------|-----------------|
 | 1 | HelpSearchServer        | `servers/01_HelpSearchServer.md`        | `1c_help_mcp`              | 8003 | `LICENSE_KEY_HELP`, `PATH_1C_BIN` |
@@ -351,10 +353,10 @@ For every server:
 1. Read the per-server `servers\NN_*.md` file in full.
 2. Substitute `{{...}}` placeholders in the `docker run` block from `<TARGET>\config.env` (`{{LICENSE_KEY_HELP}}` → value of `LICENSE_KEY_HELP`, etc.). **Do not echo license keys or API keys back to the user** — show command templates with placeholders unsubstituted, or with secrets masked (`-e LICENSE_KEY="***"`).
 3. **Apply the channel tag.** The image reference ends as `<repo-from-the-per-server-file>:<IMAGE_TAG>` — substitute `{{IMAGE_TAG}}` where the file uses a placeholder, and replace the tag part where it pins one literally (`comol/1c_help_mcp:latest` → `comol/1c_help_mcp:latest-beta`). Never change the repository name. On the beta channel, verify the tag exists first (`## Release channel → Verify the tag before pulling`); a missing beta tag is reported and decided with the user, never silently downgraded to stable.
-4. Show the command to the user and **wait for confirmation** before running it. Images may be several GB; first launch is heavy.
+4. Apply the selected host bind address and allocated host ports to the command/Compose config; this deployment adaptation does not change the image's internal ports or application contract. Show the target host and resolved command with secrets masked, then **wait for confirmation** before running it. Images may be several GB; first launch is heavy. Recheck candidate ports immediately before launch.
 5. For `GraphMetadataSearch` use Compose: `cd <TARGET>\Graph_metadata_search; docker-compose up -d` after merging `config.env` values into `<TARGET>\Graph_metadata_search\.env` — `IMAGE_TAG` goes into that `.env` too, so the stack pulls the same channel (Neo4j keeps its own pinned tag; the channel applies to the `comol/*` image only).
 6. If `USE_GPU=true`, add `--gpus all` right after `docker run -d` per the per-server file note.
-7. After each `docker run`, verify with `docker logs --tail 50 <container_name>` and report the first lines to the user. On the beta channel also check the log for index / schema mismatch messages and apply `## Release channel → Boundaries` if one appears.
+7. After each launch, verify redacted logs on the selected host, actual port mappings and the client-reachable endpoint, then persist the successful deployment record. On the beta channel also check for index / schema mismatch messages and apply `## Release channel → Boundaries` if one appears.
 
 Skip servers whose required inputs are missing and explicitly list them in the final report.
 
@@ -365,6 +367,8 @@ Skip servers whose required inputs are missing and explicitly list them in the f
 **This section is the canon for the per-client MCP config placement** — file path, top-level key, per-server shape, the Kilo legacy-file warning and the OpenCode `onec-` key rule. `/updatemcp`, `/checkmcp`, `/doctor` and the optional-tool installers point here; `install.ps1` renders the same placement.
 
 After containers are up, write the MCP config for the active client. **The file path and JSON shape differ per client** — using the wrong combination (most commonly: writing Cursor-style `mcpServers` into a Kilo / OpenCode file) results in a silently empty MCP list in `/mcps` and missing tools in the agent session. The canonical fragment from `INSTALL.md` STEP 4 covers Cursor only; for the other clients use the table below.
+
+All localhost URLs below are shape examples. Replace them with the full verified URLs from the deployment record: selected DNS/IP, allocated host ports and actual transport paths (or proxy URLs). Merge selected entries, preserving unrelated connections and auth references; never regenerate custom endpoints from the static catalog.
 
 | Client | Config file | Top-level key | Per-server shape |
 |---|---|---|---|
@@ -449,7 +453,7 @@ Qwen Code (merge only `mcpServers` into `.qwen/settings.json`; HTTP uses `httpUr
 }
 ```
 
-Keep only the servers that were actually installed. Replace the Templates placeholder from `<TARGET>\config.env`; never print the token in chat or commit the rendered client config. If write tools are disabled, omit that header and expect `remember` / `add_template` / `plugin_reload` to be absent. If the project has `.ai-rules.json`, the MCP config is rendered by the 1c-rules installer (which implements the per-client table and deep-merges Kilo's `mcp` / Qwen's `mcpServers` keys); provide `MCP_OPERATOR_TOKEN` in the installer process environment if authenticated Templates mutations are required, then re-render through `/updaterules`. Ask the user to restart the client so the MCP session is reinitialized. For Cline, configure MCP once in the global Cline settings (the rules installer does not write a project MCP file).
+Register only the servers actually installed, preserving unrelated existing entries. Replace the Templates placeholder through the client's supported secret mechanism; never print the token or commit it in client config. Ordinary memory calls follow the Templates authentication contract in `/checkmcp`; gated template mutations use the operator header when enabled. Merge the actual deployment URLs even if `.ai-rules.json` exists; do not re-render through `/updaterules`, which can restore catalog localhost/default ports. Ask the user to restart the client so the MCP session is reinitialized. For Cline, configure MCP once in the global Cline settings (the rules installer does not write a project MCP file).
 
 ### 8. Final check
 
@@ -463,7 +467,7 @@ Short user summary:
 - archive file name + size after download;
 - `INSTALL.md` version / date (if shown in the file);
 - **release channel** (`stable` / `beta`) and the `IMAGE_TAG` written to `config.env`, plus any server left on the other channel and why;
-- servers actually started (container name, port, image, tag);
+- deployment host/OS and servers actually started (container name, bind address, host/container ports, full client URL, image, tag), plus the deployment record path;
 - servers skipped and why (no `LICENSE_KEY_*`, no metadata dump, no `ONEC_AI_TOKEN`, separate setup required, etc.);
 - whether `config.env` was updated and where it is stored;
 - next steps if indexing is still running.

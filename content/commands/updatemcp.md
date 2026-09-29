@@ -10,6 +10,8 @@ This command updates already installed 1C MCP servers. It re-downloads the lates
 
 Use `/installmcp` for the very first installation (no existing containers, fresh `config.env`). Use `/checkmcp` to inspect the current state at any point.
 
+Load `content/rules/mcp-deployment.md` before locating the installation. Reuse the recorded local or shared host/context, bind address, allocated host ports, full client URLs and daemon-host paths. Run Docker commands against that target explicitly; a remote Debian/Ubuntu Engine needs no local Docker Desktop. Without access to its host, report update work as blocked instead of creating a local replacement. An update never automatically reallocates existing shared ports.
+
 ## Release channel — switching between stable and beta
 
 The channel contract (tag matrix `latest` / `light` / `arm64` × the `-beta` suffix, where `IMAGE_TAG` lives, which tags exist, how to verify a tag, the boundaries) is defined once in **`/installmcp` → `## Release channel — stable or beta (IMAGE_TAG)`**. Read it there; this command only switches between the channels it defines.
@@ -31,7 +33,7 @@ Before pulling, verify the target tag exists for **every** server being switched
 
 ### 1. Locate the existing installation
 
-Ask the user **one** thing first:
+Reuse the known installation root on the selected host. Only if missing, ask **one** question (adapt the path example to that host's OS):
 
 > Где лежит текущий распакованный дистрибутив (`INSTALL.md` + `config.env` + папка `servers/`)? По умолчанию — `C:\Work\MCP_Distr`. Введите путь или нажмите Enter.
 
@@ -78,12 +80,14 @@ Open `$staging\config.env` and `<EXISTING>\config.env` and merge them with the f
 
 After merging, write the result back to `<EXISTING>\config.env`. **Never print license keys or tokens to the user**; refer to them by name (`LICENSE_KEY_HELP updated`, etc.).
 
-Once `<EXISTING>\config.env` is updated, also overwrite supporting files from the staging copy:
+Before replacing supporting files, save the current Compose file and its deployment overrides alongside the pre-update settings; the new staging copy is not a rollback copy. Once `<EXISTING>\config.env` is updated, refresh supporting files from staging while retaining recorded host paths, bind addresses and port assignments:
 
 - `<EXISTING>\INSTALL.md` ← `$staging\INSTALL.md`
 - `<EXISTING>\servers\*.md` ← `$staging\servers\*.md`
 - `<EXISTING>\Graph_metadata_search\docker-compose.yml` ← `$staging\Graph_metadata_search\docker-compose.yml`
 - `<EXISTING>\Graph_metadata_search\.env` — re-render from the merged `<EXISTING>\config.env` per `servers\02_GraphMetadataSearch.md` (do **not** blindly copy `.env` from staging — it ships with empty values).
+
+Reapply supported deployment settings/overrides to the refreshed Compose configuration and inspect its effective publications before recreation. Do not accidentally keep both default and custom port publications or copy staging's localhost/default ports over the existing mapping.
 
 After all files are in place, the staging directory can be deleted (or kept as a backup for one cycle, user choice).
 
@@ -155,7 +159,7 @@ On a channel switch the tag is already verified (see `## Release channel`); if t
 
 #### 6.4. Start the new container
 
-Use the exact `docker run` block from `<EXISTING>\servers\NN_*.md`, substituting `{{...}}` placeholders from the merged `<EXISTING>\config.env`. Show the command to the user with secrets masked (`-e LICENSE_KEY="***"`) and wait for confirmation. For GraphMetadata use `docker-compose up -d` in `<EXISTING>\Graph_metadata_search\`.
+Use the `docker run` block from `<EXISTING>\servers\NN_*.md`, substituting `{{...}}` placeholders from the merged `<EXISTING>\config.env` and preserving the recorded host bind address, host/container port mappings and daemon-host mounts. Show the target and command with secrets masked (`-e LICENSE_KEY="***"`) and wait for confirmation. For GraphMetadata use the selected host's Compose command with its verified deployment overrides. A conflict on an existing shared port blocks that restart; do not pick a new port as recovery.
 
 If `USE_GPU=true`, add `--gpus all` right after `docker run -d` per the per-server file note.
 
@@ -178,8 +182,8 @@ Report per server: image → new image+tag (digest if shown), container status (
 
 After all containers restart:
 
-1. If `INSTALL.md` or `servers\*.md` introduced new ports, service names, or new servers — reconcile against the active client config. File path, top-level key and per-server shape per client, the Kilo legacy `.kilocode/mcp.json` warning and the OpenCode `onec-` key rule — `/installmcp` → *Step 7. Per-client MCP config* (`content/commands/installmcp.md`); `install.ps1` renders the same placement. When editing by hand, replace only the MCP key of the client file and keep every other key intact.
-2. If `.ai-rules.json` is present in the project, prefer re-rendering via `/updaterules` (the installer renders the per-client placement, deep-merging Kilo's `mcp` key into an existing `.kilo/kilo.json` and removing the legacy `.kilocode/mcp.json`) — but only if changes are compatible with `content/mcp-servers.json`. Otherwise edit the active config manually per the bundled instruction and the canon above.
+1. Compare the actual updated endpoints with the existing client config. New distribution defaults do not override allocated host ports, DNS names or proxy paths. File placement and per-client schemas belong to `/installmcp` → *Step 7. Per-client MCP config* (`content/commands/installmcp.md`). Merge only changed, selected entries and preserve other settings/auth references; an unchanged endpoint needs no client edit.
+2. Never run `/updaterules` or regenerate the static MCP catalog to apply deployment endpoints. Follow `/setupmcp` merge/ownership rules, preserving external registry consumers. If an endpoint must deliberately change, record the affected shared consumers and their migration instead of silently updating only the current editor.
 3. Ask the user to restart the client (Cursor / Claude Code / Codex / OpenCode / Kilo Code) so it reinitializes the MCP session.
 
 ### 8. Final check
@@ -205,7 +209,7 @@ If the update broke the working state:
    ```
 
 3. **Wrong channel** (beta turned out unusable): the fastest correct rollback is `/updatemcp stable` — it resolves `IMAGE_TAG` back to the stable tag, re-pulls, and recreates the containers over the same volumes. The backup containers from Step 6.1 are the immediate fallback when even that pull is unavailable (no network, image not cached).
-4. For GraphMetadata revert to the previous Compose state with `docker-compose down` + restoring the previous `docker-compose.yml` and `.env` (the staging copy contains them as a baseline if you kept it).
+4. For GraphMetadata restore the saved **pre-update** Compose file, `.env` and deployment overrides on the recorded host, then recreate the previous stack without deleting data volumes. The freshly downloaded staging copy is not the previous deployment.
 5. Restore the previous `<EXISTING>\config.env` if you saved a backup before Step 3 (recommended — copy it to `<EXISTING>\config.env.bak.<YYYYMMDD>` before merging) — this is also what restores the previous `IMAGE_TAG`.
 6. Tell the user that rollback is complete and run `/checkmcp` again.
 

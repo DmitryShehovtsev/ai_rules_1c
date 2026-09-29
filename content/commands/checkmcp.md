@@ -7,9 +7,11 @@ userOnly: true
 
 To connect already installed servers and memory to a new repository, use `/setupmcp` (`content/commands/setupmcp.md`). It collects their actual endpoints and writes project connections; `/checkmcp` keeps MCP configs read-only.
 
+Load `content/rules/mcp-deployment.md`. Use recorded full client URLs in every deployment mode, including custom local ports and shared Debian/Ubuntu hosts. Remote services require no local Docker/Desktop/WSL. Docker inspection/start runs only against the verified owning host/context; without that access report container state as unverified and continue client endpoint checks. Never allocate new ports during diagnosis of an existing service. Catalog ports are only candidates when no installation mapping exists, never replacements for custom managed endpoints. A proxy's client port need not equal the container's published host port.
+
 This command checks that all MCP servers from the project catalog (`content/mcp-servers.json`; after 1c-rules installation, rendered into the active tool config such as `.cursor/mcp.json` / `.mcp.json` / `.kilo/kilo.json` / `opencode.json` / `.codex/config.toml` / `.qwen/settings.json` / `.kimi-code/mcp.json` / `.zcode/config.json` under `mcp.servers` / `mimocode.json` under `mcp`) are actually available in the current session, and helps start or install missing ones. Config file, top-level key and per-server shape per client — including the Kilo legacy `.kilocode/mcp.json` warning and the OpenCode `onec-` key rule — are owned by `/installmcp` → *Step 7. Per-client MCP config*; `install.ps1` renders the same placement. This command only reads those files.
 
-**External MCP installation (INSTALL.md, режим 3).** If `.ai-rules.json` has `integrations.mcp.mode = "external"` (or the env `BASESAI_MCP_GLOBAL_ROOT` points at a folder with `install.manifest.json`), the server set, ids, urls, and ports come from the **actual install artifacts**, not from the catalog or the default table below: read `install.manifest.json`, resolve paths via its `artifacts` / `consumers` / `resolution` contract (legacy manifest without `schema_version` → schema-v1 defaults: registry at `<GLOBAL_ROOT>/projects.registry.json`, global servers in `%USERPROFILE%/.cursor/mcp.json`, project servers in `<path_code>/.cursor/mcp.json`), then merge global + project `mcpServers` (project keys win on duplicate id). Ports are parsed **only from each server's `url`** (`localhost:<PORT>`); Docker container names come from the registry's project row (`containers.*`). The `mcp:install_forme` section of `USER-RULES.md` holds the rendered tables as a convenient cache. The catalog and the default ports below apply only to **managed** installs.
+**External MCP installation (INSTALL.md, режим 3).** If `.ai-rules.json` has `integrations.mcp.mode = "external"` (or the env `BASESAI_MCP_GLOBAL_ROOT` points at a folder with `install.manifest.json`), the server set, ids, urls, and ports come from the **actual install artifacts**, not from the catalog or the default table below: read `install.manifest.json`, resolve paths via its `artifacts` / `consumers` / `resolution` contract (legacy manifest without `schema_version` → schema-v1 defaults: registry at `<GLOBAL_ROOT>/projects.registry.json`, global servers in `%USERPROFILE%/.cursor/mcp.json`, project servers in `<path_code>/.cursor/mcp.json`), then merge global + project `mcpServers` (project keys win on duplicate id). Client ports are parsed **only from each server's full URL**, preserving its host, scheme and path; Docker container names come from the registry's project row (`containers.*`). The `mcp:install_forme` section of `USER-RULES.md` holds the rendered tables as a convenient cache. Managed installs likewise retain actual endpoints; the catalog is only a source of default candidates.
 
 The source of truth for images, ports, and environment variables is [docs.onerpa.ru/mcp-servery-1c](https://docs.onerpa.ru/mcp-servery-1c) and [vibecoding1c.ru/mcp_server](https://vibecoding1c.ru/mcp_server).
 
@@ -72,7 +74,8 @@ The source of truth for images, ports, and environment variables is [docs.onerpa
        $j = Get-Content -Raw $Path | ConvertFrom-Json
        foreach ($p in $j.mcpServers.PSObject.Properties) {
            $url = [string]$p.Value.url
-           $port = if ($url -match ':(\d+)(/|$)') { $Matches[1] } else { '' }
+           if (-not $url) { continue } # stdio is not an HTTP endpoint
+           $port = ([Uri]$url).Port
            $list += [PSCustomObject]@{ Id = $p.Name; Url = $url; Port = $port }
        }
        return $list
@@ -83,9 +86,9 @@ The source of truth for images, ports, and environment variables is [docs.onerpa
    $servers  = @($project) + @($global | Where-Object { $_.Id -notin $project.Id })
    ```
 
-2. Else, if the project has `.ai-rules.json`, take the catalog from the active tool config referenced by the manifest (`.cursor/mcp.json` / `.mcp.json` / `.kilo/kilo.json` under the `mcp` key / `opencode.json` under the `mcp` key / `.codex/config.toml` under `[mcp_servers."<id>"]` / `.qwen/settings.json` under `mcpServers` with `httpUrl` / `.kimi-code/mcp.json` / `.zcode/config.json` under `mcp.servers` / `mimocode.json` under `mcp`). A leftover `.kilocode/mcp.json` is **legacy** — ignore it. In `opencode.json` the server keys are `onec-...` (e.g. `onec-syntax-checker-mcp`; why — `/installmcp` → *Step 7*) — match them to the canonical `1c-...` ids by the bare tool names below, not by the prefix.
-3. Otherwise use `content/mcp-servers.json` from the rules repository.
-4. If neither source exists, use the table above as the default set.
+2. Otherwise read the active tool's actual project and inherited config, whether or not `.ai-rules.json` exists (`.cursor/mcp.json` / `.mcp.json` / `.kilo/kilo.json` under the `mcp` key / `opencode.json` under the `mcp` key / `.codex/config.toml` under `[mcp_servers."<id>"]` / `.qwen/settings.json` under `mcpServers` with `httpUrl` / `.kimi-code/mcp.json` / `.zcode/config.json` under `mcp.servers` / `mimocode.json` under `mcp`). Resolve client precedence and preserve each full URL; use a format-aware parser for JSONC/TOML. A leftover `.kilocode/mcp.json` is **legacy** — ignore it. In `opencode.json` the server keys are `onec-...` (e.g. `onec-syntax-checker-mcp`; why — `/installmcp` → *Step 7*) — match them to the canonical `1c-...` ids by the bare tool names below, not by the prefix.
+3. With no actual config, use the deployment record for verified endpoints and `content/mcp-servers.json` only for server purposes/default candidates.
+4. If neither source exists, use the table above as an unconfirmed candidate set. Do not silently assume localhost; resolve existing endpoints through `/setupmcp` or the target through `/installmcp` before probing/installing.
 
 ### Step 2. Check availability in the current agent session
 
@@ -107,20 +110,12 @@ If status is **TOOLS_OK**, treat the server as working and do not check it furth
 
 ### Step 3. Check HTTP endpoint
 
-For servers with **TOOLS_MISSING**, call the HTTP endpoint. **External mode:** probe `$s.Url` from the Step 1 list (the actual url from mcp.json), not the hardcoded port table below — the snippet below applies to managed installs only. PowerShell (Windows):
+For servers with **TOOLS_MISSING**, call the resolved HTTP endpoint from Step 1 in **every** mode. Preserve remote hosts, allocated ports, HTTPS and proxy paths. The PowerShell example consumes the resolved `$servers` list; on Linux use an equivalent client-side HTTP check:
 
 ```powershell
-$servers = @(
-    @{ Id = '1c-code-metadata-mcp';   Port = 8000 },
-    @{ Id = '1c-syntax-checker-mcp';  Port = 8002 },
-    @{ Id = '1C-docs-mcp';            Port = 8003 },
-    @{ Id = '1c-templates-mcp';       Port = 8004 },
-    @{ Id = '1c-graph-metadata-mcp';  Port = 8006 },
-    @{ Id = '1c-code-check-mcp';      Port = 8007 },
-    @{ Id = '1c-ssl-mcp';             Port = 8008 }
-)
 foreach ($s in $servers) {
-    $url = "http://localhost:$($s.Port)/mcp"
+    if (-not $s.Url) { continue } # stdio or unresolved endpoint
+    $url = $s.Url
     try {
         $r = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
         Write-Host ("{0,-26} {1,-5} HTTP {2}" -f $s.Id, $s.Port, $r.StatusCode)
@@ -131,7 +126,7 @@ foreach ($s in $servers) {
 }
 ```
 
-Any HTTP response (even `405`/`400`/`406`) means a container is listening on the port — status **HTTP_OK**. Full timeout / `Connection refused` means **HTTP_DOWN**.
+Any HTTP response (even `405`/`400`/`406`) proves HTTP reachability — status **HTTP_OK**, not container identity or MCP readiness (a proxy can respond). Report auth/path failures separately. Full timeout / `Connection refused` means **HTTP_DOWN** from this client, not proof that the remote host port is free.
 
 For `1c-data-mcp` (HTTP service on the infobase, no docker container), check the URL rendered by the installer into the active client's MCP config:
 
@@ -185,7 +180,7 @@ docker ps --all --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 
 Possible outcomes:
 
-- `docker version` fails with an engine connection error → **DOCKER_DOWN** (Docker Desktop is not running). Ask the user to start Docker Desktop and repeat `/checkmcp`.
+- `docker version` fails on the verified target → **DOCKER_DOWN** or access unverified; distinguish a stopped daemon from permissions/network/context errors. Diagnose native Docker Engine on Linux; suggest starting Docker Desktop only when that selected local deployment actually uses it. Do not infer remote status from local Docker.
 - The container is visible in `docker ps -a`, but its state is `Exited` → **CONTAINER_STOPPED**. Start it:
 
   ```powershell
@@ -200,6 +195,8 @@ Possible outcomes:
 
 **External mode:** install/recreate missing servers via the MCP distribution's **`INSTALL.md`** (it owns the registry, port assignment, and container naming) — do not `docker run` on port 8000 when the registry says 8200. The templates below apply to managed installs.
 
+First confirm that a service is absent on its owning host, not merely inaccessible from this client. For an authorized new installation, apply `content/rules/mcp-deployment.md`: the agent finds free ports on that host, persists the mapping and supplies full endpoints to `/setupmcp`. Preserve existing shared mappings during repair.
+
 **Do not run `docker run` silently.** First ask the user for:
 
 - `LICENSE_KEY` — shared MCP server license key.
@@ -212,7 +209,7 @@ Possible outcomes:
 
 **Channel.** The templates below pin `:latest` (stable). If the project already runs beta — the other containers carry `-beta` tags, or the distribution's `config.env` has `IMAGE_TAG=latest-beta` — create the missing container on **that same tag**, so the set stays on one channel. Never introduce beta here on your own initiative: this command starts what is already configured, and the channel decision belongs to `/installmcp` / `/updatemcp`.
 
-Command templates (minimal set without data preparation):
+Command templates (minimal set without data preparation). Substitute `{BIND_IP}` and each automatically selected `{HOST_PORT_*}` from the deployment plan; the container port on the right stays fixed. Resolve all bind-mount sources on the Docker host:
 
 ```powershell
 # 1c-syntax-checker-mcp
@@ -221,34 +218,34 @@ Command templates (minimal set without data preparation):
 # (-e FULLINDEX=true + an index volume) is described in /installmcp -> Step 6;
 # a container without it is a normal, fully working install, and the channel
 # is never switched to beta just to obtain it.
-docker run -d -p 8002:8002 --name 1c_syntaxcheck_mcp `
+docker run -d -p {BIND_IP}:{HOST_PORT_SYNTAX}:8002 --name 1c_syntaxcheck_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
   -e FILES_DIR=/files `
   -v "{PROJECT_ROOT}:/files:ro" `
   comol/1c_syntaxcheck_mcp:latest
 
 # 1c-templates-mcp
-docker run -d -p 8004:8004 --name 1c_templates_mcp `
+docker run -d -p {BIND_IP}:{HOST_PORT_TEMPLATES}:8004 --name 1c_templates_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
   -v "{DATA_ROOT}\mcp_templates:/app/chroma_db" `
   comol/template-search-mcp:latest
 
 # 1c-ssl-mcp
-docker run -d -p 8008:8008 --name mcp_ssl_server `
+docker run -d -p {BIND_IP}:{HOST_PORT_SSL}:8008 --name mcp_ssl_server `
   -e LICENSE_KEY={LICENSE_KEY} `
   -e SSL_VERSION={SSL_VERSION} `
   -v "{DATA_ROOT}\mcp_ssl:/app/chroma_db" `
   comol/mcp_ssl_server:latest
 
 # 1C-docs-mcp
-docker run -d -p 8003:8003 --name 1c_help_mcp `
+docker run -d -p {BIND_IP}:{HOST_PORT_DOCS}:8003 --name 1c_help_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
   -v "{PLATFORM_BIN}:/1c_docs" `
   -v "{DATA_ROOT}\mcp_docs:/app/chroma_db" `
   comol/1c_help_mcp:latest
 
 # 1c-code-metadata-mcp
-docker run -d -p 8000:8000 --name 1c_code_metadata_mcp `
+docker run -d -p {BIND_IP}:{HOST_PORT_CODE}:8000 --name 1c_code_metadata_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
   -v "{EXPORT_PATH}:/app/configuration" `
   -v "{DATA_ROOT}\mcp_code_metadata:/app/chroma_db" `
@@ -258,7 +255,7 @@ docker run -d -p 8000:8000 --name 1c_code_metadata_mcp `
 # https://docs.onerpa.ru/mcp-servery-1c/servery/graph-metadata-search.md
 
 # 1c-code-check-mcp
-docker run -d -p 8007:8007 --name 1c_code_checker_mcp `
+docker run -d -p {BIND_IP}:{HOST_PORT_CHECK}:8007 --name 1c_code_checker_mcp `
   -e NAPARNIK_TOKEN={NAPARNIK_TOKEN} `
   comol/1c-code-checker:latest
 ```
@@ -277,7 +274,7 @@ Exact current commands for each server are on the server-specific documentation 
 
 1. Wait 5-15 seconds (the container needs warm-up; RAG-indexed servers may need tens of minutes or hours on first launch, monitor with `docker logs -f <name>`).
 2. Repeat Step 3 (HTTP check); all statuses should become **HTTP_OK**.
-3. If the server is absent from the active tool MCP config, add the entry (1c-rules installer should already have rendered it; if installation was not run, add it manually using `adapters/<tool>.yaml → mcp.schema`).
+3. If the server is absent from the active tool MCP config, route connection setup to `/setupmcp` with the recorded full endpoint; this diagnostic command keeps client config read-only.
 4. Restart the client (Cursor / Claude Code / Codex / OpenCode / Kilo Code) so it reinitializes the MCP session.
 5. Run `/checkmcp` again; Step 2 statuses should become **TOOLS_OK**.
 
