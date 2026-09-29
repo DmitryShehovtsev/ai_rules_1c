@@ -30,7 +30,7 @@ The source of truth for images, ports, and environment variables is [docs.onerpa
 
 > Exact image names may differ by version. If `docker pull` fails with `manifest unknown`, check the current list at [docs.onerpa.ru/mcp-servery-1c/servery.md](https://docs.onerpa.ru/mcp-servery-1c/servery.md).
 
-> **Channel.** The `:latest` tags above are the **stable** channel. A project may deliberately run the **beta** channel — the same images with a `-beta` suffix (`comol/1c_help_mcp:latest-beta`, also `light-beta` / `arm64-beta`). `/checkmcp` never changes the channel; it only reports the tag each container actually runs. The contract (tag matrix, `IMAGE_TAG`, how to verify a tag) is `/installmcp` → `## Release channel — stable or beta (IMAGE_TAG)`; switching is `/updatemcp beta` / `/updatemcp stable`.
+> **One channel — stable.** Since 27.09.2026 the images are published only as `latest` (above), `light` and `arm64` (the variant tags; Syntax has no `light`). The former beta images became these tags; `*-beta` tags are no longer published or supported. `/checkmcp` never changes a tag; it only reports the tag each container actually runs. A container on a `*-beta` tag, or on an image created before 27.09.2026, is outdated: the fix is `/updatemcp stable`, following the upgrade table of the distribution's `INSTALL.md` (new keys, index folders).
 
 > **Templates authentication.** `templatesearch`, `recall`, `list_templates`, `get_template`, and `plugin_state` are read-only. Current `remember` is always registered and needs no operator token or write-tools opt-in. Only `add_template` and `plugin_reload` are conditional mutations: they require write tools enabled and an `Authorization` bearer header from `MCP_OPERATOR_TOKEN`. Their absence alone is not `TOOLS_MISSING`; `mutation_auth_required` on a gated call means repair that connection, never restart or regenerate data blindly. Older deployments may differ: report the observed surface and memory-write availability separately.
 
@@ -176,7 +176,7 @@ docker version --format '{{.Server.Version}}'
 docker ps --all --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 ```
 
-**Read the channel off the `Image` column** — the tag is the only place it lives. A tag ending in `-beta` (`latest-beta`, `light-beta`, `arm64-beta`) means that container runs the beta channel; anything else is stable. Report the channel per server in the final table, and when the set is **mixed** (some containers beta, some stable) report it as a **WARN** with the reason if known and the fix — `/updatemcp beta` or `/updatemcp stable` to bring the set back onto one channel. A whole-set beta install is not a warning: it is a valid, deliberate state.
+**Read the tag off the `Image` column.** A tag ending in `-beta` (`latest-beta`, `light-beta`, `arm64-beta`) is an outdated container: report it as a **WARN** with the fix `/updatemcp stable`. When in doubt about a stable tag, `docker image inspect -f '{{.Created}}' <image>` shows whether the image predates 27.09.2026; such an image rejects the current keys (`Invalid LICENSE_KEY`) and is outdated too. Report the tag per server in the final table.
 
 Possible outcomes:
 
@@ -199,54 +199,53 @@ First confirm that a service is absent on its owning host, not merely inaccessib
 
 **Do not run `docker run` silently.** First ask the user for:
 
-- `LICENSE_KEY` — shared MCP server license key.
+- The license key of each server — every server has its own: `LICENSE_KEY_HELP`, `LICENSE_KEY_CODEMETADATA`, `LICENSE_KEY_GRAPH`, `LICENSE_KEY_SSL`, `LICENSE_KEY_SYNTAX`, `LICENSE_KEY_TEMPLATES`, `LICENSE_KEY_CODECHECKER`, `LICENSE_KEY_QA` in the distribution's `config.env` (or the vibecoding1c.ru account). The container receives it as `LICENSE_KEY`. A key of another server, or one issued before 27.09.2026, gives `Invalid LICENSE_KEY` and the container exits within seconds. Never print key values; name them.
 - Local data paths for servers that need them:
   - `1C-docs-mcp` — platform `bin` folder path (for example, `C:\Program Files\1cv8\8.3.23.1997\bin`).
   - `1c-code-metadata-mcp`, `1c-graph-metadata-mcp` — configuration dump directory (`DumpConfigToFiles`).
   - `1c-ssl-mcp` — BSP/SSL version (`SSL_VERSION`, for example `3.1.11`).
-  - `1c-code-check-mcp` — 1C:Assistant token, if it will be used.
+  - `1c-code-check-mcp` — an env file outside the distribution holding `ONEC_AI_TOKEN` (the 1C:Assistant token); never put the token into `config.env`, MCP configs or command lines.
 - Index volume directory — common folder such as `E:\bases\mcp_<id>`, mounted at the path each template below names (Help `/app/index`, SSL `/app/zvec_db`, Code and Templates `/app/chroma_db`). A volume at any other path is not used: the index is written into the container and lost with it.
 
-**Channel.** The templates below pin `:latest` (stable). If the project already runs beta — the other containers carry `-beta` tags, or the distribution's `config.env` has `IMAGE_TAG=latest-beta` — create the missing container on **that same tag**, so the set stays on one channel. Never introduce beta here on your own initiative: this command starts what is already configured, and the channel decision belongs to `/installmcp` / `/updatemcp`.
+**Tag.** The templates below pin `:latest`. If the other containers run another variant (`light`, `arm64`) or the distribution's `config.env` sets `IMAGE_TAG`, create the missing container on that variant. Never use a `*-beta` tag: it is no longer published.
 
 Command templates (minimal set without data preparation). Substitute `{BIND_IP}` and each automatically selected `{HOST_PORT_*}` from the deployment plan; the container port on the right stays fixed. Resolve all bind-mount sources on the Docker host:
 
 ```powershell
 # 1c-syntax-checker-mcp
 # The read-only sources mount + FILES_DIR enables the 'syntaxcheck_file' tool
-# (the default form of the syntax gate). The optional beta-only FULLINDEX mode
+# (the default form of the syntax gate). The optional FULLINDEX mode
 # (-e FULLINDEX=true + an index volume) is described in /installmcp -> Step 6;
-# a container without it is a normal, fully working install, and the channel
-# is never switched to beta just to obtain it.
+# a container without it is a normal, fully working install.
 docker run -d -p {BIND_IP}:{HOST_PORT_SYNTAX}:8002 --name 1c_syntaxcheck_mcp `
-  -e LICENSE_KEY={LICENSE_KEY} `
+  -e LICENSE_KEY={LICENSE_KEY_SYNTAX} `
   -e FILES_DIR=/files `
   -v "{PROJECT_ROOT}:/files:ro" `
   comol/1c_syntaxcheck_mcp:latest
 
 # 1c-templates-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_TEMPLATES}:8004 --name 1c_templates_mcp `
-  -e LICENSE_KEY={LICENSE_KEY} `
+  -e LICENSE_KEY={LICENSE_KEY_TEMPLATES} `
   -v "{DATA_ROOT}\mcp_templates:/app/chroma_db" `
   comol/template-search-mcp:latest
 
 # 1c-ssl-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_SSL}:8008 --name mcp_ssl_server `
-  -e LICENSE_KEY={LICENSE_KEY} `
+  -e LICENSE_KEY={LICENSE_KEY_SSL} `
   -e SSL_VERSION={SSL_VERSION} `
   -v "{DATA_ROOT}\mcp_ssl:/app/zvec_db" `
   comol/mcp_ssl_server:latest
 
 # 1C-docs-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_DOCS}:8003 --name 1c_help_mcp `
-  -e LICENSE_KEY={LICENSE_KEY} `
+  -e LICENSE_KEY={LICENSE_KEY_HELP} `
   -v "{PLATFORM_BIN}:/1c_docs" `
   -v "{DATA_ROOT}\mcp_docs:/app/index" `
   comol/1c_help_mcp:latest
 
 # 1c-code-metadata-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_CODE}:8000 --name 1c_code_metadata_mcp `
-  -e LICENSE_KEY={LICENSE_KEY} `
+  -e LICENSE_KEY={LICENSE_KEY_CODEMETADATA} `
   -v "{EXPORT_PATH}:/app/code:ro" `
   -v "{DATA_ROOT}\mcp_code_metadata:/app/chroma_db" `
   comol/1c_code_metadata_mcp:latest
@@ -254,9 +253,10 @@ docker run -d -p {BIND_IP}:{HOST_PORT_CODE}:8000 --name 1c_code_metadata_mcp `
 # 1c-graph-metadata-mcp — separate Neo4j setup, see docs
 # https://docs.onerpa.ru/mcp-servery-1c/servery/graph-metadata-search.md
 
-# 1c-code-check-mcp
+# 1c-code-check-mcp — {ONEC_ENV_FILE} holds ONEC_AI_TOKEN=..., outside the distribution
 docker run -d -p {BIND_IP}:{HOST_PORT_CHECK}:8007 --name 1c_code_checker_mcp `
-  -e NAPARNIK_TOKEN={NAPARNIK_TOKEN} `
+  --env-file "{ONEC_ENV_FILE}" `
+  -e LICENSE_KEY={LICENSE_KEY_CODECHECKER} `
   comol/1c-code-checker:latest
 ```
 
@@ -282,15 +282,15 @@ Exact current commands for each server are on the server-specific documentation 
 
 Summary table for the user:
 
-| Server | Session tools | HTTP | Container | Channel (image:tag) | Action |
+| Server | Session tools | HTTP | Container | Image:tag | Action |
 |---|---|---|---|---|---|
-| `...` | OK / missing | OK / down | running / stopped / missing | stable / beta (`comol/...:latest-beta`) | none / `docker start` / `docker run` / reconnect client |
+| `...` | OK / missing | OK / down | running / stopped / missing | current / outdated (`*-beta`, image before 27.09.2026) | none / `docker start` / `docker run` / `/updatemcp stable` / reconnect client |
 
 Under the table, list clear next steps with copy-ready commands. Do not list items that already work.
 
 ## Limits
 
-- The command does not run `docker run` without user confirmation; it needs `LICENSE_KEY`, data paths, and consent to download images (several GB).
+- The command does not run `docker run` without user confirmation; it needs the server's `LICENSE_KEY_<SERVER>`, data paths, and consent to download images (several GB).
 - `/checkmcp` is read-only with respect to MCP configs — never rewrite `.cursor/mcp.json` (or another tool's MCP target) during the check. In external mode the configs belong to the MCP distribution's installer.
 - External multi-project layout: global servers live in the user-profile `mcp.json`, project servers in the workspace `mcp.json` — the client must load both levels; a server missing from the session may simply mean the client was not restarted after the MCP install.
 - Graph MCP (`1c-graph-metadata-mcp`) requires separate Neo4j setup and indexing. This is a multi-step process; execute it by the server documentation page, not from this command.
