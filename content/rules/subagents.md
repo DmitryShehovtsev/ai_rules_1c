@@ -76,7 +76,7 @@ Owned by `content/rules/subagent-core.md` — CONFUSION on material forks, MCP-f
 | **1c-refactoring** | Dead-code cleanup, consolidation, or deduplication across multiple modules | Refactor is local to one procedure |
 | **1c-performance-optimizer** | User reports slowness, or query / loop optimization is the explicit task | No performance concern was raised |
 | **1c-error-fixer** | Quick fix of syntax / runtime errors / BSL LS warnings without architectural changes (tier `coding` — it authors production code, often on transactional paths) | The fix requires architectural rework — escalate to `1c-architect` / `1c-developer` |
-| **1c-tester** | Applicable UI verification with effective `UI_TESTING=auto`, or explicit UI-test request under `manual`; authorized dev/test target required (`dev-standards-env.md`) | No test infobase; purely static task; `off`, or `manual` without an explicit UI-test request |
+| **1c-tester** | Applicable UI verification with effective `UI_TESTING=essential` (important new or changed user-visible behaviour) or `auto`, or explicit UI-test request under `manual`; authorized dev/test target required (`dev-standards-env.md`) | No test infobase; purely static task; `off`, or `manual` without an explicit UI-test request |
 | **1c-code-reviewer** | **Only when the user explicitly asks for a code review** and the reviewer model gate below is satisfied | Auto-triggering after edits is forbidden; no explicitly selected reviewer model |
 | **1c-doc-writer** | User-facing documentation: user guides, admin manuals, tutorials, codemaps, API references | Inline code documentation (module / procedure headers) — that is the developer's responsibility |
 
