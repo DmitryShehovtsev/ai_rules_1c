@@ -205,7 +205,7 @@ First confirm that a service is absent on its owning host, not merely inaccessib
   - `1c-code-metadata-mcp`, `1c-graph-metadata-mcp` — configuration dump directory (`DumpConfigToFiles`).
   - `1c-ssl-mcp` — BSP/SSL version (`SSL_VERSION`, for example `3.1.11`).
   - `1c-code-check-mcp` — 1C:Assistant token, if it will be used.
-- Index volume directory (`-v ...:/app/chroma_db`) — common folder such as `E:\bases\mcp_<id>`.
+- Index volume directory — common folder such as `E:\bases\mcp_<id>`, mounted at the path each template below names (Help `/app/index`, SSL `/app/zvec_db`, Code and Templates `/app/chroma_db`). A volume at any other path is not used: the index is written into the container and lost with it.
 
 **Channel.** The templates below pin `:latest` (stable). If the project already runs beta — the other containers carry `-beta` tags, or the distribution's `config.env` has `IMAGE_TAG=latest-beta` — create the missing container on **that same tag**, so the set stays on one channel. Never introduce beta here on your own initiative: this command starts what is already configured, and the channel decision belongs to `/installmcp` / `/updatemcp`.
 
@@ -234,20 +234,20 @@ docker run -d -p {BIND_IP}:{HOST_PORT_TEMPLATES}:8004 --name 1c_templates_mcp `
 docker run -d -p {BIND_IP}:{HOST_PORT_SSL}:8008 --name mcp_ssl_server `
   -e LICENSE_KEY={LICENSE_KEY} `
   -e SSL_VERSION={SSL_VERSION} `
-  -v "{DATA_ROOT}\mcp_ssl:/app/chroma_db" `
+  -v "{DATA_ROOT}\mcp_ssl:/app/zvec_db" `
   comol/mcp_ssl_server:latest
 
 # 1C-docs-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_DOCS}:8003 --name 1c_help_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
   -v "{PLATFORM_BIN}:/1c_docs" `
-  -v "{DATA_ROOT}\mcp_docs:/app/chroma_db" `
+  -v "{DATA_ROOT}\mcp_docs:/app/index" `
   comol/1c_help_mcp:latest
 
 # 1c-code-metadata-mcp
 docker run -d -p {BIND_IP}:{HOST_PORT_CODE}:8000 --name 1c_code_metadata_mcp `
   -e LICENSE_KEY={LICENSE_KEY} `
-  -v "{EXPORT_PATH}:/app/configuration" `
+  -v "{EXPORT_PATH}:/app/code:ro" `
   -v "{DATA_ROOT}\mcp_code_metadata:/app/chroma_db" `
   comol/1c_code_metadata_mcp:latest
 
