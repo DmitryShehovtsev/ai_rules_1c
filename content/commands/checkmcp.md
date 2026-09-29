@@ -30,7 +30,7 @@ The source of truth for images, ports, and environment variables is [docs.onerpa
 
 > Exact image names may differ by version. If `docker pull` fails with `manifest unknown`, check the current list at [docs.onerpa.ru/mcp-servery-1c/servery.md](https://docs.onerpa.ru/mcp-servery-1c/servery.md).
 
-> **One channel — stable.** Since 27.09.2026 the images are published only as `latest` (above), `light` and `arm64` (the variant tags; Syntax has no `light`). The former beta images became these tags; `*-beta` tags are no longer published or supported. `/checkmcp` never changes a tag; it only reports the tag each container actually runs. A container on a `*-beta` tag, or on an image created before 27.09.2026, is outdated: the fix is `/updatemcp stable`, following the upgrade table of the distribution's `INSTALL.md` (new keys, index folders).
+> **One channel — stable.** Since 27.09.2026 the images are published only as `latest` (above), `light` and `arm64` (the variant tags; Syntax has no `light`). The former beta images became these tags; `*-beta` tags are no longer published or supported. `/checkmcp` never changes a tag; it only reports the tag each container actually runs. A container on a `*-beta` tag, or on an image created before 27.09.2026, is outdated: the fix is `/updatemcp`, following the upgrade table of the distribution's `INSTALL.md` (new keys, index folders).
 
 > **Templates authentication.** `templatesearch`, `recall`, `list_templates`, `get_template`, and `plugin_state` are read-only. Current `remember` is always registered and needs no operator token or write-tools opt-in. Only `add_template` and `plugin_reload` are conditional mutations: they require write tools enabled and an `Authorization` bearer header from `MCP_OPERATOR_TOKEN`. Their absence alone is not `TOOLS_MISSING`; `mutation_auth_required` on a gated call means repair that connection, never restart or regenerate data blindly. Older deployments may differ: report the observed surface and memory-write availability separately.
 
@@ -176,7 +176,7 @@ docker version --format '{{.Server.Version}}'
 docker ps --all --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 ```
 
-**Read the tag off the `Image` column.** A tag ending in `-beta` (`latest-beta`, `light-beta`, `arm64-beta`) is an outdated container: report it as a **WARN** with the fix `/updatemcp stable`. When in doubt about a stable tag, `docker image inspect -f '{{.Created}}' <image>` shows whether the image predates 27.09.2026; such an image rejects the current keys (`Invalid LICENSE_KEY`) and is outdated too. Report the tag per server in the final table.
+**Read the tag off the `Image` column.** A tag ending in `-beta` (`latest-beta`, `light-beta`, `arm64-beta`) is an outdated container: report it as a **WARN** with the fix `/updatemcp`. When in doubt about a stable tag, `docker image inspect -f '{{.Created}}' <image>` shows whether the image predates 27.09.2026; such an image rejects the current keys (`Invalid LICENSE_KEY`) and is outdated too. Report the tag per server in the final table.
 
 Possible outcomes:
 
@@ -284,7 +284,7 @@ Summary table for the user:
 
 | Server | Session tools | HTTP | Container | Image:tag | Action |
 |---|---|---|---|---|---|
-| `...` | OK / missing | OK / down | running / stopped / missing | current / outdated (`*-beta`, image before 27.09.2026) | none / `docker start` / `docker run` / `/updatemcp stable` / reconnect client |
+| `...` | OK / missing | OK / down | running / stopped / missing | current / outdated (`*-beta`, image before 27.09.2026) | none / `docker start` / `docker run` / `/updatemcp` / reconnect client |
 
 Under the table, list clear next steps with copy-ready commands. Do not list items that already work.
 

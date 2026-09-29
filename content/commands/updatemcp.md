@@ -1,7 +1,6 @@
 ---
-description: Re-download the 1C MCP server distribution from vibecoding1c.ru, pull new images, refresh keys, restart installed servers, and switch the image channel between stable and beta
+description: Re-download the 1C MCP server distribution from vibecoding1c.ru, pull new images, refresh keys and restart installed servers
 userOnly: true
-argumentHint: "[stable|beta]"
 ---
 
 # /updatemcp — update MCP servers from a fresh vibecoding1c.ru distribution
@@ -12,22 +11,11 @@ Use `/installmcp` for the very first installation (no existing containers, fresh
 
 Load `content/rules/mcp-deployment.md` before locating the installation. Reuse the recorded local or shared host/context, bind address, allocated host ports, full client URLs and daemon-host paths. Run Docker commands against that target explicitly; a remote Debian/Ubuntu Engine needs no local Docker Desktop. Without access to its host, report update work as blocked instead of creating a local replacement. An update never automatically reallocates existing shared ports.
 
-## Release channel — switching between stable and beta
+## Image variant and outdated tags
 
-The channel contract (tag matrix `latest` / `light` / `arm64` × the `-beta` suffix, where `IMAGE_TAG` lives, which tags exist, how to verify a tag, the boundaries) is defined once in **`/installmcp` → `## Release channel — stable or beta (IMAGE_TAG)`**. Read it there; this command only switches between the channels it defines.
+The tag contract (variants `latest` / `light` / `arm64`, `IMAGE_VARIANT` and the optional `IMAGE_TAG` override, which tags exist, how to verify a tag, the boundaries) is defined once in **`/installmcp` → `## Image variant`**. Read it there. An update keeps the installed variant; changing it happens only on the user's explicit request.
 
-`/updatemcp` takes one optional argument:
-
-- **empty** — keep the current channel. Read `IMAGE_TAG` from `<EXISTING>\config.env`, update within that channel, and **never** move a stable install onto beta (or back) as a side effect of an update.
-- `beta` / `-beta` / `бета` — switch to beta: `IMAGE_TAG` becomes the `-beta` twin of the current variant tag (`latest` → `latest-beta`, `light` → `light-beta`, `arm64` → `arm64-beta`). Already on beta — no-op, say so and continue with the normal update.
-- `stable` / `latest` / `стабильный` — switch back: strip the `-beta` suffix from the current tag (`light-beta` → `light`). Already on stable — no-op, say so and continue.
-- anything else — do not guess; show the current channel and ask.
-
-A channel switch is a **separate, confirmed decision** on top of the update. Ask once, before any pull:
-
-> Сейчас установлен канал `<CURRENT_TAG>`, переключаю на `<TARGET_TAG>`. Контейнеры пересоздаются на образах нового канала, тома (индексы) переиспользуются, старые контейнеры остаются как `<name>_backup_<YYYYMMDD>`. Откат — `/updatemcp <обратный канал>` или запуск backup-контейнера. Переключаем?
-
-Before pulling, verify the target tag exists for **every** server being switched (`/installmcp` → *Verify the tag before pulling*). If it is missing for one server, name that server and ask: leave it on the current channel (a documented mixed set) or abort the switch. Do not substitute a neighbouring tag on your own.
+Since 27.09.2026 there is one channel — stable. An installation still on a `*-beta` tag (`latest-beta`, `light-beta`, `arm64-beta` in `config.env` or on a container) or on an image created before 27.09.2026 is outdated: this update moves it to the same variant without the suffix (`light-beta` → `light`), with the new `LICENSE_KEY_<SERVER>` keys from the archive and the index and container-name handling of the upgrade table in the distribution's `INSTALL.md`. Name the migration in the Step 4 plan; no separate confirmation beyond that plan is needed.
 
 ## Steps
 
@@ -73,7 +61,7 @@ Open `$staging\config.env` and `<EXISTING>\config.env` and merge them with the f
 | Field class | Source of truth | Action |
 |---|---|---|
 | `LICENSE_KEY_*` | new archive | **always overwrite** existing values with values from `$staging\config.env` (these are the new license keys included in the release) |
-| `IMAGE_TAG` | **the channel argument, else the existing file** | An explicit `beta` / `stable` argument wins and writes the resolved tag. Without an argument, **keep the installed value** — an archive shipping `IMAGE_TAG=latest` must not silently pull a beta install back to stable, or the reverse. Show old vs new only when the archive default differs from the kept value, and treat any change as the confirmed channel switch above. |
+| `IMAGE_VARIANT` / `IMAGE_TAG` | **the existing file** | Keep the installed variant — an archive default must not silently switch `light` to `latest` or the reverse. A `*-beta` value becomes the same variant without the suffix (`## Image variant and outdated tags`). An older file with only `IMAGE_TAG` keeps that key. Show old vs new only when a value actually changes. |
 | `USE_GPU`, `SSL_VERSION` and other release-version-coupled parameters | new archive default + user confirmation | show old vs new, ask explicitly whether to keep the user's existing value or switch to the new default |
 | `PATH_1C_BIN`, `PATH_METADATA`, `PATH_CODE`, `PATH_BASES`, `EMBEDDING_API_KEY`, `EMBEDDING_API_BASE`, `EMBEDDING_MODEL`, `CHAT_API_KEY`, `ONEC_AI_TOKEN` and any other user-supplied data | existing file | **keep** the user's values; never overwrite from the archive (archive ships them empty) |
 | any new variable present in `$staging\config.env` but missing in `<EXISTING>\config.env` | new archive | **add** it to the existing file; if it is empty and looks user-required, ask the user (one consolidated message), then save |
@@ -114,13 +102,13 @@ If a container is absent, it was not installed previously — `/updatemcp` will 
 Briefly summarize for the user (3-7 lines):
 
 - which servers will be updated (only those present in `docker ps -a`);
-- the channel: `<current tag>` → `<target tag>`, or "канал не меняется" when there is no channel argument;
-- which images will be pulled (image:tag from per-server `servers\NN_*.md`, with `IMAGE_TAG` from `config.env`);
+- the image tag per server: `<current tag>` → `<target tag>` (a `*-beta` migration is named explicitly), or "тег не меняется";
+- which images will be pulled (image:tag from per-server `servers\NN_*.md`, with the effective tag from `config.env`);
 - whether reindexing is needed and roughly how long;
 - which `LICENSE_KEY_*` changed (by name only, never the value);
 - explicitly: volumes are reused by default (no reindexing, indexes preserved).
 
-Risky steps that must be called out: volume deletion, manual DB migration, stopping a container during active indexing, and a channel switch — beta may change the index format, and moving to beta is not covered by any compatibility promise. Ask for explicit confirmation before continuing.
+Risky steps that must be called out: volume deletion, manual DB migration, stopping a container during active indexing, and a migration off a `*-beta` tag or a pre-27.09.2026 image (new keys, possibly new index folders per `INSTALL.md`). Ask for explicit confirmation before continuing.
 
 ### 6. Execute the update — one container at a time
 
@@ -153,9 +141,9 @@ Default to option 1 unless the user explicitly chooses 2 or the release notes re
 docker pull <image>:<IMAGE_TAG_from_config_env>
 ```
 
-Pull is **mandatory** on update — this is the whole point of the command. Pull also the GraphMetadata stack via `docker-compose pull` in `<EXISTING>\Graph_metadata_search\` (it has multiple images: app + Neo4j) after writing the merged `IMAGE_TAG` into that folder's `.env`, so the stack follows the same channel.
+Pull is **mandatory** on update — this is the whole point of the command. Pull also the GraphMetadata stack via `docker-compose pull` in `<EXISTING>\Graph_metadata_search\` (it has multiple images: app + Neo4j) after writing the merged effective tag into that folder's `.env`, so the stack follows the same variant.
 
-On a channel switch the tag is already verified (see `## Release channel`); if the pull still fails with `manifest unknown`, **stop for that server**, leave the previous state in place (the old container was only stopped and renamed in 6.1 — start the backup again), and report it. Never fall back to the other channel's tag silently.
+If the pull fails with `manifest unknown`, **stop for that server**, leave the previous state in place (the old container was only stopped and renamed in 6.1 — start the backup again), and report it. Never fall back to another tag silently, and never to a `*-beta` tag.
 
 #### 6.4. Start the new container
 
@@ -169,7 +157,7 @@ If `USE_GPU=true`, add `--gpus all` right after `docker run -d` per the per-serv
 docker logs <container_name> --tail 50
 ```
 
-On a switch to beta, also read the log for index / schema mismatch messages. If one appears, do **not** delete the stable index: point that server's volume at a separate directory (`<PATH_BASES>\<server>_beta`), recreate the container, and let it reindex — the stable index then survives a `/updatemcp stable` rollback intact.
+After a migration off an outdated image, also read the log for index / schema mismatch messages. If one appears, do **not** delete the old index: point that server's volume at a new directory under `PATH_BASES`, recreate the container, and let it reindex — the old index then survives a rollback to the backup container intact.
 
 If the log shows `LICENSE` / `license key` errors:
 
@@ -208,9 +196,9 @@ If the update broke the working state:
    docker start <container_name>
    ```
 
-3. **Wrong channel** (beta turned out unusable): the fastest correct rollback is `/updatemcp stable` — it resolves `IMAGE_TAG` back to the stable tag, re-pulls, and recreates the containers over the same volumes. The backup containers from Step 6.1 are the immediate fallback when even that pull is unavailable (no network, image not cached).
+3. **New image unusable**: start the backup containers from Step 6.1 — they keep the previous image and volumes — and report the failure with the log; do not move the set to a `*-beta` or another unpublished tag.
 4. For GraphMetadata restore the saved **pre-update** Compose file, `.env` and deployment overrides on the recorded host, then recreate the previous stack without deleting data volumes. The freshly downloaded staging copy is not the previous deployment.
-5. Restore the previous `<EXISTING>\config.env` if you saved a backup before Step 3 (recommended — copy it to `<EXISTING>\config.env.bak.<YYYYMMDD>` before merging) — this is also what restores the previous `IMAGE_TAG`.
+5. Restore the previous `<EXISTING>\config.env` if you saved a backup before Step 3 (recommended — copy it to `<EXISTING>\config.env.bak.<YYYYMMDD>` before merging) — this is also what restores the previous `IMAGE_VARIANT` / `IMAGE_TAG`.
 6. Tell the user that rollback is complete and run `/checkmcp` again.
 
 ## Final report
@@ -221,7 +209,7 @@ Short user summary:
 - archive file name + size after download;
 - new `INSTALL.md` version / date (if shown in the file);
 - which `LICENSE_KEY_*` changed (by name only, never the value);
-- **release channel**: `<previous tag>` → `<current tag>`, or "без изменений"; any server deliberately left on the other channel and why;
+- **image tag**: `<previous tag>` → `<current tag>` per server, or "без изменений"; a `*-beta` migration named explicitly;
 - servers actually updated (container name, port, previous → new image+tag);
 - servers skipped and why (not installed, no `LICENSE_KEY_*`, no metadata dump, no `ONEC_AI_TOKEN`, etc.);
 - backup containers kept (`<name>_backup_<YYYYMMDD>`);
@@ -233,5 +221,5 @@ Short user summary:
 - The command **does not echo or persist license keys / API tokens** in chat, in the repo, or in any committed file. Keys live only in `<EXISTING>\config.env` and in container environment variables.
 - Tilda member-area credentials (`tilda_login`, `tilda_password`) are reused from `memory.md` or asked once; the storage / consent policy is owned by `/installmcp` → *Limits* and *1.1. Distribution download flow*.
 - The command **does not install** servers that are not already in `docker ps -a` — use `/installmcp` for that.
-- The command **does not change the release channel** without an explicit `beta` / `stable` argument plus the confirmation above. An update with no argument stays on the channel the project already runs, whatever the fresh archive's `config.env` defaults to.
+- The command **does not change the image variant** without the user's explicit request, whatever the fresh archive's `config.env` defaults to, and never installs a `*-beta` tag.
 - The command **does not run** `docker pull` / `docker compose up` / `docker rm` / `docker volume rm` without explicit user confirmation.
