@@ -22,6 +22,10 @@ No script files were brought into `tools/` — the operations are pure module-te
 
 ## cf-manage.md
 
+### Local fix `2026-10-01` — sibling validators are found
+
+The auto-validation of `cf-edit`, `interface-edit`, `subsystem-compile` and `subsystem-edit` looked for the validator at upstream's `..\..\<validator>\scripts\` path, which does not exist in this layout, so it was skipped silently; `xdto-edit` looked for `xdto-decompile` / `xdto-compile` / `xdto-validate` the same way and refused every structural operation. All five now take the sibling script from their own `scripts` directory.
+
 ### Upstream sync `2026-07-30`
 
 Scripts refreshed from [Nikolay-Shirokov/cc-1c-skills](https://github.com/Nikolay-Shirokov/cc-1c-skills): `cf-edit` v1.4 → **v1.11**, `cf-info` v1.2 → **v1.4**, `cf-init` v1.2 → **v1.3**, `cf-validate` v1.3 → **v1.4**.
