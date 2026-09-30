@@ -1689,9 +1689,14 @@ function Invoke-OpenSpecArtifacts {
                 }
             }
             $absTarget = Join-Path $Root $destRel
-            if ((Test-Path $absTarget) -and -not $Manifest.files.Contains($destRel)) {
+            if ((Test-Path $absTarget) -and -not $Manifest.files.Contains($destRel) -and
+                -not (Test-ForcePath $destRel) -and
+                (Get-FileSha256 $absTarget) -ne (Get-FileSha256 $_.FullName)) {
                 # Pre-existing OpenSpec command/skill is user-owned. The bundle
                 # is skip-if-exists on first install; never adopt and overwrite it.
+                # A byte-identical copy is ours already (an update before the
+                # manifest kept bundle entries dropped them) and is adopted;
+                # -Force / -ForcePaths take an older untracked copy back.
                 $toolKept++
                 return
             }
@@ -1708,7 +1713,7 @@ function Invoke-OpenSpecArtifacts {
         }
         if ($toolCopied -gt 0 -or $toolKept -gt 0) {
             $msg = "  [$tool] OpenSpec artefacts: $toolCopied placed"
-            if ($toolKept -gt 0) { $msg += ", $toolKept kept (userModified)" }
+            if ($toolKept -gt 0) { $msg += ", $toolKept kept (user-owned)" }
             Write-Info $msg
         }
         $totalCopied += $toolCopied
@@ -5365,13 +5370,16 @@ function Invoke-Update {
     # refresh decision needs the previous installedHash from the manifest.
     # Dropping the clean entry here made Update-AgentsMd treat the existing
     # file as user-owned: it was never refreshed and got permanently flagged
-    # userModified on every update.
+    # userModified on every update. The OpenSpec bundle has the same rule:
+    # Invoke-OpenSpecArtifacts leaves a file it finds on disk without an entry
+    # to the user, so a dropped entry froze the bundle after the first update.
     $newFiles = [ordered]@{}
     foreach ($k in $manifest.files.Keys) {
         # Per-server MCP ownership must survive pruning so update can replace
         # our servers while preserving pre-existing user servers with any id.
         if ($manifest.files[$k].userModified -or $k -eq $script:AgentsMdFileName -or
-            $manifest.files[$k].Contains('managedServers')) { $newFiles[$k] = $manifest.files[$k] }
+            $manifest.files[$k].Contains('managedServers') -or
+            ([string]$manifest.files[$k].source).StartsWith('content/openspec-bundle/')) { $newFiles[$k] = $manifest.files[$k] }
     }
     $manifest.files = $newFiles
 
