@@ -1863,8 +1863,13 @@ function Get-1cProjectInfo {
     if ($info.NamePrefix -and -not $info.IsExtension) { $info.IsExtension = $true }
 
     # БСП detection — common module path is the canonical signal; fall back to
-    # the matching subsystem .xml. Version is parsed from the body of the
-    # `Функция ВерсияБиблиотеки()` (or English `LibraryVersion()`) function.
+    # the matching subsystem .xml. Version comes from `Описание.Версия` in
+    # `ПриДобавленииПодсистемы` of ОбновлениеИнформационнойБазыБСП (English
+    # `OnAddSubsystem` of InfobaseUpdateSSL); old БСП without that module return a
+    # literal from `ВерсияБиблиотеки()` (`LibraryVersion()`). Both searches stay
+    # inside their own procedure: modern `ВерсияБиблиотеки()` returns an
+    # expression, and an unbounded search ran on to the next `Возврат "<digits>"`
+    # of the module - the minimum platform version.
     $bspCandidates = @(
         'CommonModules\СтандартныеПодсистемыСервер\Ext\Module.bsl',
         'CommonModules\StandardSubsystemsServer\Ext\Module.bsl'
@@ -1879,17 +1884,38 @@ function Get-1cProjectInfo {
             if (Test-Path (Join-Path $sourceRoot "Subsystems\$n")) { $info.BspDetected = $true; break }
         }
     }
-    if ($bspFile) {
+    foreach ($c in @('CommonModules\ОбновлениеИнформационнойБазыБСП\Ext\Module.bsl',
+                     'CommonModules\InfobaseUpdateSSL\Ext\Module.bsl')) {
+        $p = Join-Path $sourceRoot $c
+        if (-not (Test-Path $p)) { continue }
         $info.BspDetected = $true
         try {
-            $bspContent = Get-Content -Raw -Path $bspFile -ErrorAction Stop
-            $rxRu = [regex]'(?ms)Функция\s+ВерсияБиблиотеки\s*\(\s*\)\s+Экспорт.*?Возврат\s+"([0-9.]+)"'
-            $rxEn = [regex]'(?ms)Function\s+LibraryVersion\s*\(\s*\)\s+Export.*?Return\s+"([0-9.]+)"'
-            $vm = $rxRu.Match($bspContent)
-            if (-not $vm.Success) { $vm = $rxEn.Match($bspContent) }
-            if ($vm.Success) { $info.BspVersion = $vm.Groups[1].Value }
+            $updContent = Get-Content -Raw -Path $p -ErrorAction Stop
+            $pm = [regex]::Match($updContent, '(?ms)^\s*(?:Процедура|Procedure)\s+(?:ПриДобавленииПодсистемы|OnAddSubsystem)\s*\([^)]*\)(.*?)^\s*(?:КонецПроцедуры|EndProcedure)')
+            if ($pm.Success) {
+                $vm = [regex]::Match($pm.Groups[1].Value, '\.\s*(?:Версия|Version)\s*=\s*"([0-9.]+)"')
+                if ($vm.Success) { $info.BspVersion = $vm.Groups[1].Value }
+            }
         }
         catch {}
+        break
+    }
+    if ($bspFile) {
+        $info.BspDetected = $true
+        if (-not $info.BspVersion) {
+            try {
+                $bspContent = Get-Content -Raw -Path $bspFile -ErrorAction Stop
+                $rxRu = [regex]'(?ms)Функция\s+ВерсияБиблиотеки\s*\(\s*\)\s+Экспорт(.*?)КонецФункции'
+                $rxEn = [regex]'(?ms)Function\s+LibraryVersion\s*\(\s*\)\s+Export(.*?)EndFunction'
+                $fm = $rxRu.Match($bspContent)
+                if (-not $fm.Success) { $fm = $rxEn.Match($bspContent) }
+                if ($fm.Success) {
+                    $vm = [regex]::Match($fm.Groups[1].Value, '(?:Возврат|Return)\s+"([0-9.]+)"')
+                    if ($vm.Success) { $info.BspVersion = $vm.Groups[1].Value }
+                }
+            }
+            catch {}
+        }
     }
 
     $subsDir = Join-Path $sourceRoot 'Subsystems'
