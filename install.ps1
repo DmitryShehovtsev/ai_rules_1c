@@ -130,6 +130,9 @@ $script:DevEnvExampleName = '.dev.env.example'
 $script:UseEdtKey = 'USE_EDT'
 $script:SupportKeys = @('SUPPORT_KEY', 'SUPPORT_EMAIL', 'SUPPORT_API_URL')
 $script:SupportedTools = @('cursor', 'claude-code', 'codex', 'opencode', 'kilocode', 'kimi', 'qwen', 'command-code', 'cline', 'zcode', 'mimocode', 'pi', 'other')
+# OpenCode configs belong to the user, including files tracked by older
+# installers. Never migrate, rewrite or remove any of these paths.
+$script:OpenCodeConfigPaths = @('opencode.json', 'opencode.jsonc', '.opencode/opencode.json', '.opencode/opencode.jsonc')
 $script:ManagedBlocks = @('core', 'user-defined', 'openspec')
 $script:LastChannel = 'powershell'
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -1186,8 +1189,8 @@ function ConvertTo-OpenCodeMcpKey {
 
 function New-McpConfig-OpenCode {
     # OpenCode MCP schema (https://opencode.ai/docs/mcp-servers/). The config
-    # goes into `opencode.json` at the PROJECT ROOT (see adapters/opencode.yaml
-    # > mcp.target) — NOT `.opencode/opencode.json`, which OpenCode never reads.
+    # defaults to `opencode.json` at the project root for a fresh installation.
+    # Existing configs (including .opencode/ and JSONC) are preserved in place.
     # Each entry is validated with Zod `.strict()`: ONLY the documented keys are
     # allowed, and any unknown key (e.g. `description`, `connection_id`) makes
     # OpenCode reject the whole config so the servers silently never load.
@@ -1348,7 +1351,7 @@ function Get-ToolDetectionSignals {
         'cursor'       = @((Test-Path (Join-Path $Root '.cursor')))
         'claude-code'  = @((Test-Path (Join-Path $Root '.claude')), (Test-Path (Join-Path $Root 'CLAUDE.md')))
         'codex'        = @((Test-Path (Join-Path $Root '.codex')))
-        'opencode'     = @((Test-Path (Join-Path $Root '.opencode')), (Test-Path (Join-Path $Root 'opencode.json')))
+        'opencode'     = @((Test-Path (Join-Path $Root '.opencode')), (Test-Path (Join-Path $Root 'opencode.json')), (Test-Path (Join-Path $Root 'opencode.jsonc')))
         'kilocode'     = @((Test-Path (Join-Path $Root '.kilo')), (Test-Path (Join-Path $Root '.kilocode')))
         'kimi'         = @((Test-Path (Join-Path $Root '.kimi-code')), (Test-Path (Join-Path $Root '.kimi')))
         'qwen'         = @((Test-Path (Join-Path $Root '.qwen')), (Test-Path (Join-Path $Root 'QWEN.md')))
@@ -2817,6 +2820,17 @@ function Convert-AgentsMdPaths {
 # SECTION 11: MCP PHASE
 # ============================================================================
 
+function Unregister-OpenCodeConfigs {
+    # Older manifests may claim the whole config or its entire `mcp` section.
+    # Drop that ownership before drift checks and removal, without touching disk.
+    param([System.Collections.IDictionary]$Manifest)
+    foreach ($rel in @($Manifest.files.Keys)) {
+        if ([string]$rel.Replace('\', '/') -in $script:OpenCodeConfigPaths) {
+            [void]$Manifest.files.Remove($rel)
+        }
+    }
+}
+
 function Get-McpConfigMap {
     # Resolve a dictionary path, including ZCode's nested mcp.servers.
     # Reject malformed config instead of replacing user data with an object.
@@ -2847,6 +2861,18 @@ function Invoke-McpPhase {
         [hashtable]$Adapters,
         [System.Collections.IDictionary]$Manifest
     )
+    Unregister-OpenCodeConfigs -Manifest $Manifest
+    if ('opencode' -in $ActiveTools) {
+        $existingConfigs = @($script:OpenCodeConfigPaths | Where-Object { Test-Path -LiteralPath (Join-Path $Root $_) })
+        if ($existingConfigs.Count -gt 0) {
+            Write-Info ("  [opencode] MCP config: сохраняю существующие файлы без изменений: " + ($existingConfigs -join ', ') + '. Для изменения подключений используйте /setupmcp.')
+            $ActiveTools = @($ActiveTools | Where-Object { $_ -ne 'opencode' })
+        }
+    }
+    if ($ActiveTools.Count -eq 0) {
+        $Manifest.mcpServers = @()
+        return
+    }
     $servers = Read-McpServers -Root $SourceRoot
 
     # Substitute {INFOBASE_PUBLISH_URL} placeholders in server URLs from the
@@ -3049,6 +3075,12 @@ function Invoke-McpPhase {
         }
 
         Write-TextFile -Path $absTarget -Content ($finalContent + "`n")
+        if ($tool -eq 'opencode') {
+            # A fresh config is a starter template, not an installer-owned file.
+            # Later updates and removal must preserve even a byte-identical copy.
+            Write-Info "  [$tool] MCP config создан: $target (пользовательский файл)"
+            continue
+        }
         $previousMcpEntry = $null
         if ($Manifest.files.Contains($target)) { $previousMcpEntry = $Manifest.files[$target] }
         $mcpEntry = [ordered]@{
@@ -5248,6 +5280,7 @@ function Invoke-Update {
     foreach ($k in $manifest.files.Keys) { $script:PreviousFiles[$k] = $true }
 
     Write-Section 'Detecting user-modified files'
+    Unregister-OpenCodeConfigs -Manifest $manifest
     $dirty = @()
     foreach ($rel in @($manifest.files.Keys)) {
         $abs = Resolve-ManifestPath -Root $Root -Rel $rel
@@ -5562,6 +5595,7 @@ function Invoke-Remove {
     )
     $manifest = Read-Manifest -Root $Root
     if (-not $manifest) { Write-Info 'No manifest; nothing to remove.'; return }
+    Unregister-OpenCodeConfigs -Manifest $manifest
 
     if ($ScopeTool) {
         if ($ScopeTool -notin $manifest.tools) { Write-Warn "$ScopeTool is not installed."; return }
