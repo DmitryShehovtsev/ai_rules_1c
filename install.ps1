@@ -2277,9 +2277,13 @@ function Invoke-PlaceSkill {
         New-Item -ItemType Directory -Force -Path $absTarget | Out-Null
     }
 
-    # 1) Copy / refresh every source file unless the user owns it.
+    # 1) Copy / refresh every source file unless the user owns it. Python
+    #    bytecode is not content: a source tree whose tools were run carries
+    #    git-ignored __pycache__ directories, and a copy tracked by an earlier
+    #    install is pruned in step 2 as no longer shipped.
     $sourceRels = @{}
-    foreach ($sf in Get-ChildItem -Recurse -File -Path $srcFull) {
+    foreach ($sf in Get-ChildItem -Recurse -File -Path $srcFull |
+            Where-Object { $_.FullName -notmatch '[\\/]__pycache__[\\/]' -and $_.Extension -ne '.pyc' }) {
         $relWithin = Get-InstallerRelativePath -BasePath $srcFull -ChildPath $sf.FullName
         $sourceRels[$relWithin] = $true
         $key = "$targetRelBase/$relWithin"
