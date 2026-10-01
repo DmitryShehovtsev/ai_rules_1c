@@ -96,6 +96,8 @@ public static class QaTestClientNative {
     [DllImport("user32.dll")] static extern int GetWindowThreadProcessId(IntPtr hwnd, out int pid);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int cmd);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
@@ -127,9 +129,12 @@ public static class QaTestClientNative {
         return pi.dwProcessId;
     }
 
+    // Windows the last Capture restored from maximised before painting them.
+    public static int Restored;
+
     // Both run on a fresh thread: SetThreadDesktop needs a thread without windows.
-    public static string[] Capture(int pid, string desktop, string path) {
-        return OnThread<string[]>(delegate() { return CaptureOnThread(pid, desktop, path); });
+    public static string[] Capture(int pid, string desktop, string path, bool restoreMaximized) {
+        return OnThread<string[]>(delegate() { return CaptureOnThread(pid, desktop, path, restoreMaximized); });
     }
 
     // The test port opens before the licence and sign-in checks; the main window means the client is up.
@@ -221,10 +226,21 @@ public static class QaTestClientNative {
         return windows;
     }
 
-    static string[] CaptureOnThread(int pid, string desktop, string path) {
+    static string[] CaptureOnThread(int pid, string desktop, string path, bool restoreMaximized) {
         IntPtr handle = IntPtr.Zero;
+        List<IntPtr> zoomed = new List<IntPtr>();
+        Restored = 0;
         try {
             List<IntPtr> windows = ClientWindows(pid, desktop, out handle);
+            // An 8.5 client painted while maximised keeps a core busy and stops answering the
+            // test manager (measured on 8.5.1.1522); a restored window is painted safely.
+            if (restoreMaximized) {
+                foreach (IntPtr hwnd in windows) {
+                    if (IsZoomed(hwnd) && ShowWindow(hwnd, 9 /* SW_RESTORE */)) zoomed.Add(hwnd);
+                }
+                if (zoomed.Count > 0) Thread.Sleep(500);
+                Restored = zoomed.Count;
+            }
             List<IntPtr> shown = new List<IntPtr>();
             List<RECT> rects = new List<RECT>();
             int left = Int32.MaxValue, top = Int32.MaxValue, right = Int32.MinValue, bottom = Int32.MinValue;
@@ -262,6 +278,7 @@ public static class QaTestClientNative {
             }
             return titles;
         } finally {
+            foreach (IntPtr hwnd in zoomed) ShowWindow(hwnd, 3 /* SW_MAXIMIZE */);
             if (handle != IntPtr.Zero) CloseDesktop(handle);
         }
     }
@@ -434,8 +451,15 @@ function Save-Capture {
         $Out = Join-Path $dir ("{0}-{1}.png" -f $Port, (Get-Date -Format 'yyyyMMdd-HHmmss'))
     }
     $Out = [IO.Path]::GetFullPath($Out)
-    $titles = [QaTestClientNative]::Capture($processId, $desktop, $Out)
-    return @{ path = $Out; pid = $processId; hidden = [bool]$desktop; windows = @($titles) }
+    # 8.5 must not be painted while maximised; the version comes from the client's executable.
+    $exe = (Get-Process -Id $processId -ErrorAction SilentlyContinue).Path
+    $fileVersion = $null
+    $restore = $exe -and [version]::TryParse([string](Get-Item -LiteralPath $exe).VersionInfo.FileVersion, [ref]$fileVersion) `
+        -and $fileVersion -ge [version]'8.5'
+    $titles = [QaTestClientNative]::Capture($processId, $desktop, $Out, [bool]$restore)
+    $result = @{ path = $Out; pid = $processId; hidden = [bool]$desktop; windows = @($titles) }
+    if ([QaTestClientNative]::Restored -gt 0) { $result.maximized_restored_for_capture = [QaTestClientNative]::Restored }
+    return $result
 }
 
 function Stop-TestClient {
