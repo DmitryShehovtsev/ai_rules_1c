@@ -111,7 +111,7 @@ Windows outside the testing model — platform error dialogs it does not reach, 
 
 A UI step that writes data — a record created, a document posted, register movements, balances — is confirmed through `1c-data-mcp` when the result matters to the check and the form does not show it. `ui_eval` and `qa_run_script` are unavailable in `native`; their jobs go here, under `content/skills/1c-live-ib/SKILL.md` and its Safety section:
 
-- `validatequery`, then `vcexecutequery` — read-only. Find objects the check created by a marker the check entered itself (a comment, a code), since queries take no parameters.
+- `vcvalidatequery`, then `vcexecutequery` — read-only. Find objects the check created by a marker the check entered itself (a comment, a code), since queries take no parameters.
 - A value computed on the server: a read-only `vcexecutecode` fragment.
 - After a failing or refused step: `vcloggetlasterror`. Its limits go into the report: only the most recent error of 24 hours, not filtered by session.
 - Preparing or cleaning test data through `1c-data-mcp` changes the base: only with the person's explicit consent and never on `INFOBASE_ROLE=prod`.
