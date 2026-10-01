@@ -76,7 +76,7 @@ Load a tool schema only for a tool or argument that is not shown here. Where the
 | Clean start | `ui_close_all()` | `windows`: the main window and the home page only |
 | Open a list | `ui_open(kind="catalog", metadata_name="Организации")` (`kind` in English or Russian, or `metadata_name="Справочник.Организации"` alone) | `opened: true`, `form_name` |
 | First item of the list | `ui_table(action="first", name="Список")` → `ui_table(action="select", name="Список")` | `window_after`: `title`, `form_name` of the item form; `url` from `ui_active_window()` when needed |
-| Item of a known row | `ui_table(action="select", name="Список", row={"Наименование": "Крон-Ц"})` | same; a missing row is the error «Строка таблицы не найдена», nothing opened |
+| Item of a known row | `ui_table(action="select", name="Список", row={"Наименование": "Крон-Ц"})` — the choice is made on the column of `row=` (or `column=`) | same; a missing row is the error «Строка таблицы не найдена», nothing opened |
 | Item in a long list | `ui_list(action="search", text="Крон")` → `select` with `row=` as above; `ui_list(action="clear_search")` before the list is used again | the search `rows` hold the row |
 | The same object again | `ui_open(link="<url from ui_active_window>", target_form_name="<its form_name>")` | `opened: true` |
 | New object | on its list: `ui_table(action="add", name="Список")` | `window_after.title` ends with «(создание)» |
@@ -95,8 +95,13 @@ What goes wrong around them:
 2. `ui_table(action="edit")` on a list opens the item form (`window_after`, `editing: false`) — it does not edit the row in place; open items with `select` and never call `end_edit` after it.
 3. `kind` values: `catalog`, `document`, `dataProcessor`, `report`, `informationRegister`, `accumulationRegister`, `chartOfCharacteristicTypes`, `chartOfAccounts`, `chartOfCalculationTypes`, `businessProcess`, `task`, `exchangePlan`, `commonForm`, or the Russian name of the kind (before 0.7.9 only the English ones).
 4. Form selectors (`target_title`, `title=` of `ui_close_form` and `ui_wait`) compare the whole title, without wildcards, and a modified form's title gets « *». Address a form by `form_name`.
-5. Elements are searched in the whole application. An answer with `found_in` came from a window that is not the active one — a list under the card opened over it: check it is the window you mean.
-6. A configuration may hide a standard button and show its own with the same title (`КомандаЗаписатьИЗакрыть` beside a hidden `ФормаЗаписатьИЗакрыть`): take the name of the visible button from `ui_form(action="command_bar")`.
+5. Elements are searched in the active window first, then in the whole application. An answer with `found_in` came from a window that is not the active one — a list under the card opened over it: check it is the window you mean.
+6. A configuration may hide a standard button and show its own with the same title (`КомандаЗаписатьИЗакрыть` beside a hidden `ФормаЗаписатьИЗакрыть`): take the name from `ui_form(action="command_bar")` or the `lite` tree — both list visible buttons only.
+7. `ui_window_tree()` is `lite` by default: visible elements without values, hidden ones counted in `hidden_skipped`. Values and states need `detail="form"`; on a large form that is tens of thousands of characters — read single fields with `ui_get_text` instead.
+8. A wrong metadata name or an exception in the form's code ends `ui_open` at once with the error text, and the error window stays open: `ui_dialog(title="OK")`, then take the exact name from the metadata (`1c-meta-info`). `ui_errors` returns the text of an open `ErrorWindow`.
+9. `ui_dialog(action="click")` needs `title=` or `name=` of the button; without them nothing is pressed.
+10. `ui_set` with text several items start with may leave the choice list open: `dropdown_selected: false`, `dropdown_open: true` — pick with `ui_field(action="dropdown_select", value=…)`. A click while the list is open only closes it.
+11. A report after «Сформировать»: an empty `ui_spreadsheet(action="size")` with `state.text` «Отчет формируется...» is not ready — read again after a pause; «Изменились настройки…» means the click did not generate it, click again.
 
 Two attempts one way are the limit. After the second failure read the window (`ui_active_window`, `ui_window_tree(detail="lite")`), then choose another way or report what was reached; do not vary arguments blindly.
 

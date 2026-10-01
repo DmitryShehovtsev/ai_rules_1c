@@ -100,6 +100,8 @@ public static class QaTestClientNative {
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
 
     // The caller keeps the handle until the client listens: a desktop without handles
@@ -136,9 +138,7 @@ public static class QaTestClientNative {
             IntPtr handle = IntPtr.Zero;
             try {
                 foreach (IntPtr hwnd in ClientWindows(pid, desktop, out handle)) {
-                    StringBuilder cls = new StringBuilder(256);
-                    GetClassName(hwnd, cls, cls.Capacity);
-                    if (cls.ToString().StartsWith("V8TopLevelFrame", StringComparison.Ordinal)) return true;
+                    if (IsMainWindow(hwnd)) return true;
                 }
                 return false;
             } finally {
@@ -157,9 +157,7 @@ public static class QaTestClientNative {
             int posted = 0;
             try {
                 foreach (IntPtr hwnd in ClientWindows(pid, desktop, out handle)) {
-                    StringBuilder cls = new StringBuilder(256);
-                    GetClassName(hwnd, cls, cls.Capacity);
-                    if (cls.ToString().StartsWith("V8TopLevelFrame", StringComparison.Ordinal)
+                    if (IsMainWindow(hwnd)
                             && PostMessage(hwnd, 0x0010 /* WM_CLOSE */, IntPtr.Zero, IntPtr.Zero)) posted++;
                 }
                 return posted;
@@ -167,6 +165,20 @@ public static class QaTestClientNative {
                 if (handle != IntPtr.Zero) CloseDesktop(handle);
             }
         });
+    }
+
+    // 8.3 names the main window class V8TopLevelFrame*. In 8.5 every client window, a
+    // question too, is V8Window0.<hash>; the main one has no owner, a minimise box and
+    // the application-window flag (measured on 8.5.1.1522).
+    static bool IsMainWindow(IntPtr hwnd) {
+        StringBuilder cls = new StringBuilder(256);
+        GetClassName(hwnd, cls, cls.Capacity);
+        string name = cls.ToString();
+        if (name.StartsWith("V8TopLevelFrame", StringComparison.Ordinal)) return true;
+        if (!name.StartsWith("V8Window", StringComparison.Ordinal)) return false;
+        if (GetWindow(hwnd, 4 /* GW_OWNER */) != IntPtr.Zero) return false;
+        return (GetWindowLong(hwnd, -16 /* GWL_STYLE */) & 0x00020000 /* WS_MINIMIZEBOX */) != 0
+            && (GetWindowLong(hwnd, -20 /* GWL_EXSTYLE */) & 0x00040000 /* WS_EX_APPWINDOW */) != 0;
     }
 
     delegate T Work<T>();
